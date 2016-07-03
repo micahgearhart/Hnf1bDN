@@ -1,0 +1,28 @@
+---
+title: "Untitled"
+author: "Micah Gearhart"
+date: "7/3/2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Libraries
+```{r libraries,eval=T,results='hide',message=FALSE,warning=FALSE}
+library(Rsamtools)
+library(GenomicAlignments)
+library(BiocParallel)
+library(DESeq2)
+```
+
+## EDA
+```{r}
+load("igarash0_Project_004_genehits_ens84Thu_Jun_30_2016_2351.rdata")
+cds <- DESeqDataSet(genehits,design=~1)
+cds <- estimateSizeFactors(cds)
+cds$filename<-rownames(colData(cds))
+plotPCA(cds,intgroup=)
+```
+
