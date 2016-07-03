@@ -23,6 +23,8 @@ load("igarash0_Project_004_genehits_ens84Thu_Jun_30_2016_2351.rdata")
 cds <- DESeqDataSet(genehits,design=~1)
 cds <- estimateSizeFactors(cds)
 cds$filename<-rownames(colData(cds))
-plotPCA(cds,intgroup=)
+colData(cds)$genotype<-sapply(strsplit(rownames(colData(cds)),"-"),function(x){x[1]})
+colData(cds)$salt<-ifelse(sapply(strsplit(rownames(colData(cds)),"-"),function(x){x[2]})=="Nacl","Nacl","noSalt")
+plotPCA(cds,intgroup=c(salt,genotype))
 ```
 
