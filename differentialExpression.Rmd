@@ -1,8 +1,8 @@
 ---
-title: "Untitled"
+title: "Differential Expression on Mif NaCl Experiment"
 author: "Micah Gearhart"
 date: "7/3/2016"
-output: html_document
+output: md_document
 ---
 
 ```{r setup, include=FALSE}
@@ -16,20 +16,63 @@ library(GenomicAlignments)
 library(BiocParallel)
 library(DESeq2)
 library(ggplot2)
+library(magrittr)
+library(biomaRt)
 
 ts<-format(Sys.time(), "%a_%b_%d_%Y_%H%M")
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+
+## Get annotation data from biomaRt
+```{r biomaRt,eval=F}
+ensembl_84<-useMart(biomart="ENSEMBL_MART_ENSEMBL",host = "useast.ensembl.org", dataset="mmusculus_gene_ensembl")
+txdb84<-makeTxDbFromBiomart(biomart="ENSEMBL_MART_ENSEMBL",host = "www.ensembl.org",dataset="mmusculus_gene_ensembl")
+ens84<-exonsBy(txdb84,by="gene")
+mgi <-  getBM(attributes = c("ensembl_gene_id", "mgi_id", "mgi_symbol"), filters = "ensembl_gene_id",
+    values = names(ens84), mart = ensembl_84)
+save(ens84,file="ens84_mouse.rdata")
+save(mgi,"mgi.rdata")
 ```
 
 ## EDA
 ```{r}
 load("igarash0_Project_004_genehits_ens84Thu_Jun_30_2016_2351.rdata")
 cds <- DESeqDataSet(genehits,design=~1)
-cds <- estimateSizeFactors(cds)
 cds$filename<-rownames(colData(cds))
-colData(cds)$genotype<-sapply(strsplit(rownames(colData(cds)),"-"),function(x){x[1]})
-colData(cds)$salt<-ifelse(sapply(strsplit(rownames(colData(cds)),"-"),function(x){x[2]})=="Nacl","Nacl","noSalt")
+colData(cds)$genotype<-as.factor(sapply(strsplit(rownames(colData(cds)),"-"),function(x){x[1]}))
+colData(cds)$salt<-factor(ifelse(sapply(strsplit(rownames(colData(cds)),"-"),function(x){x[2]})=="Nacl","Nacl","noSalt"),levels=c("noSalt","Nacl"))
 plotPCA(DESeqTransform(cds),intgroup=c("salt","genotype"))+
   scale_color_manual(values=cbPalette)  + theme_bw()
+```
+
+```{r}
+design(cds)<-(~genotype + salt + genotype:salt)
+cds <- DESeq(cds)
+resultsNames(cds)
+res<-results(cds, name="genotypeMif.saltnoSalt")
+summary(res)
+plotCounts(cds,"ENSMUSG00000020679",intgroup=c("salt","genotype"),returnData=F)
+```
+
+```{r}
+gg_plotCounts<-function(x="ENSMUSG00000020679") {
+  if (substr(x,1,7)=="ENSMUSG") {
+  title<-mgi[grep(x,mgi$ensembl_gene_id),"mgi_symbol"]
+  } else {
+    title<-x
+    x<-mgi[grep(paste0("^",title,"$"),mgi$mgi_symbol),"ensembl_gene_id"]
+  }
+  
+plotCounts(cds,x,intgroup=c("salt","genotype"),returnData=T) %>% 
+  ggplot(aes(x=genotype, y=count)) +
+  geom_point(position=position_jitter(w=0.1,h=0)) + ggtitle(paste0(x,":",title)) +
+ # scale_y_log10(breaks=c(25,100,400)) + 
+ # scale_y_continuous(trans="log2") + ylim(0,25000) +
+  expand_limits(x=0, y = 0) +
+  facet_grid(~salt) + theme_bw()
+  }
+
+gg_plotCounts("Bcor")
 ```
 
