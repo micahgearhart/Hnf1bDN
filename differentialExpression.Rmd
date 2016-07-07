@@ -32,12 +32,13 @@ ens84<-exonsBy(txdb84,by="gene")
 mgi <-  getBM(attributes = c("ensembl_gene_id", "mgi_id", "mgi_symbol"), filters = "ensembl_gene_id",
     values = names(ens84), mart = ensembl_84)
 save(ens84,file="ens84_mouse.rdata")
-save(mgi,"mgi.rdata")
+save(mgi,file="mgi.rdata")
 ```
 
 ## EDA
 ```{r}
 load("igarash0_Project_004_genehits_ens84Thu_Jun_30_2016_2351.rdata")
+load("mgi.rdata")
 cds <- DESeqDataSet(genehits,design=~1)
 cds$filename<-rownames(colData(cds))
 colData(cds)$genotype<-as.factor(sapply(strsplit(rownames(colData(cds)),"-"),function(x){x[1]}))
@@ -47,11 +48,9 @@ plotPCA(DESeqTransform(cds),intgroup=c("salt","genotype"))+
 ```
 
 ```{r}
-design(cds)<-(~genotype + salt + genotype:salt)
+design(cds)<- ~ genotype + salt + genotype:salt
 cds <- DESeq(cds)
-resultsNames(cds)
-res<-results(cds, name="genotypeMif.saltnoSalt")
-summary(res)
+
 plotCounts(cds,"ENSMUSG00000020679",intgroup=c("salt","genotype"),returnData=F)
 ```
 
@@ -65,14 +64,70 @@ gg_plotCounts<-function(x="ENSMUSG00000020679") {
   }
   
 plotCounts(cds,x,intgroup=c("salt","genotype"),returnData=T) %>% 
-  ggplot(aes(x=genotype, y=count)) +
+  ggplot(aes(x=salt, y=count)) +
   geom_point(position=position_jitter(w=0.1,h=0)) + ggtitle(paste0(x,":",title)) +
  # scale_y_log10(breaks=c(25,100,400)) + 
  # scale_y_continuous(trans="log2") + ylim(0,25000) +
   expand_limits(x=0, y = 0) +
-  facet_grid(~salt) + theme_bw()
+  facet_grid(~genotype) + theme_bw()
   }
 
-gg_plotCounts("Bcor")
+gg_plotCounts("Nr1h4")
+```
+
+## Look for genes with High Interaction Term
+```{r}
+resultsNames(cds)
+res<-results(cds, name="genotypeMif.saltNacl")
+summary(res)
+resDF<-as.data.frame(res)
+resDF<-resDF[!is.na(resDF$padj),]
+resDF<-resDF[with(resDF,order(-log2FoldChange)),]
+idx<-match(rownames(resDF),mgi$ensembl_gene_id)
+resDF$mgi<-mgi[idx,"mgi_symbol"]
+head(resDF)
+gg_plotCounts("Slc14a1")
+gg_plotCounts("Lrrn3")
+tail(resDF)
+gg_plotCounts("Saa3")
+gg_plotCounts("Zfp750")
+
+resDF<-resDF[with(resDF,order(padj)),]
+head(resDF)
+gg_plotCounts("Ppbp")
+
+gg_plotCounts("Nr1h4")
+gg_plotCounts("Pkhd1")
+
+```
+
+## control logfc vs hnf1b logfc
+```{r}
+cds2<-cds
+cds2$group <- factor(paste0(cds2$genotype, cds2$salt))
+design(cds2)<- ~ group
+cds2 <- DESeq(cds2) 
+resultsNames(cds2)
+
+summary(res_wt<-results(cds2, contrast=c("group","ControlnoSalt","ControlNacl"),alpha=0.05))
+res_wt<-as.data.frame(res_wt)
+colnames(res_wt)<-paste0("WT",".",colnames(res_wt))
+
+summary(res_hnf1b<-results(cds2, contrast=c("group","MifnoSalt","MifNacl")))
+res_hnf1b<-as.data.frame(res_hnf1b)
+colnames(res_hnf1b)<-paste0("hnf1b",".",colnames(res_hnf1b))
+
+res_merged<-cbind(res_wt,res_hnf1b)
+head(res_merged)
+res_merged<-res_merged[res_merged$WT.padj < 0.05 & res_merged$WT.baseMean > 100,]
+dim(res_merged)
+head(res_merged)
+res_merged<-subset(res_merged,!(is.na(WT.log2FoldChange) | is.na(hnf1b.log2FoldChange)))
+idx<-match(rownames(res_merged),mgi$ensembl_gene_id)
+res_merged$mgi<-mgi[idx,"mgi_symbol"]
+plot(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,pch=16,cex=0.5,xlab="WT Salt Induced Log2FC",ylab="Hnf1b Salt Induced Log2FC")
+abline(h=0,col="red2")
+res_merged[identify(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,labels=res_merged$mgi),]
+
 ```
 
