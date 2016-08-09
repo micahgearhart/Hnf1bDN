@@ -175,3 +175,11 @@ Look for genes with High Interaction Term
     gg_plotCounts("Ppbp")
 
 ![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-5.png)
+
+    gg_plotCounts("Nr1h4")
+
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-6.png)
+
+    gg_plotCounts("Pkhd1")
+
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-7.png)
