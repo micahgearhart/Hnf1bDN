@@ -21,6 +21,7 @@ library(biomaRt)
 library(ChIPpeakAnno)
 library(Mus.musculus)
 library(goseq)
+library(pheatmap)
 
 ts<-format(Sys.time(), "%a_%b_%d_%Y_%H%M")
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -37,6 +38,9 @@ mgi <-  getBM(attributes = c("ensembl_gene_id", "mgi_id", "mgi_symbol"), filters
 save(ens84,file="ens84_mouse.rdata")
 save(mgi,file="mgi.rdata")
 ```
+## Summarize Overlaps
+
+Run summarizeOverlaps.Rmd on HPC cluster. 
 
 ## EDA
 ```{r}
@@ -81,14 +85,15 @@ gg_plotCounts("Nr1h4")
 ## Look for genes with High Interaction Term
 ```{r}
 resultsNames(cds)
-res<-results(cds, name="genotypeMif.saltNacl")
+res<-results(cds, name="genotypeMif.saltNacl",alpha=0.05,lfcThreshold = 1)
 summary(res)
 resDF<-as.data.frame(res)
 resDF<-resDF[!is.na(resDF$padj),]
 resDF<-resDF[with(resDF,order(-log2FoldChange)),]
 idx<-match(rownames(resDF),mgi$ensembl_gene_id)
 resDF$mgi<-mgi[idx,"mgi_symbol"]
-head(resDF)
+head(resDF,20)
+resDF["ENSMUSG00000047638",]
 gg_plotCounts("Slc14a1")
 gg_plotCounts("Lrrn3")
 tail(resDF)
@@ -101,6 +106,8 @@ gg_plotCounts("Ppbp")
 
 gg_plotCounts("Nr1h4")
 gg_plotCounts("Pkhd1")
+
+length(interactive_genes<-rownames(resDF[abs(resDF$log2FoldChange) > 1 & resDF$padj < 0.05,]))
 
 ```
 
@@ -122,17 +129,36 @@ colnames(res_hnf1b)<-paste0("hnf1b",".",colnames(res_hnf1b))
 
 res_merged<-cbind(res_wt,res_hnf1b)
 head(res_merged)
-res_merged<-res_merged[res_merged$WT.padj < 0.05 & res_merged$WT.baseMean > 100,]
-dim(res_merged)
-head(res_merged)
+#res_merged<-res_merged[res_merged$WT.padj < 0.05 & res_merged$WT.baseMean > 100,]
 res_merged<-subset(res_merged,!(is.na(WT.log2FoldChange) | is.na(hnf1b.log2FoldChange)))
+dim(res_merged)
 idx<-match(rownames(res_merged),mgi$ensembl_gene_id)
 res_merged$mgi<-mgi[idx,"mgi_symbol"]
 res_merged$'Effect Size'<-abs(res_merged$hnf1b.log2FoldChange-res_merged$WT.log2FoldChange)
 
-plot(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,pch=16,cex=0.5,xlab="WT Salt Induced Log2FC",ylab="Hnf1b Salt Induced Log2FC",col=ifelse(res_merged$`Effect Size` > 1,"red","black"))
+
+#Alternative to Effect size is to highlight genes with interaction term
+res_merged$iTerm<-rownames(res_merged) %in% interactive_genes
+summary(idx<-match(rownames(res_merged),rownames(resDF)))
+res_merged$int<-resDF[idx,"log2FoldChange"]
+res_merged[is.na(res_merged$int),]<-0
+res_merged$int.padj<-resDF[idx,"padj"]
+
+plot(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,pch=16,cex=0.5,xlab="WT Salt Induced Log2FC",ylab="Hnf1b Salt Induced Log2FC",col=ifelse(res_merged$`Effect Size` > 1 & abs(res_merged$WT.log2FoldChange) > 1,"red","black"))
+res_merged[identify(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,labels=res_merged$mgi),]
+
+ggplot(res_merged,aes(x=WT.log2FoldChange,y=hnf1b.log2FoldChange)) + geom_point(aes(colour = int)) + theme_bw() +
+  scale_colour_gradient2("Hnf1b:NaCl\nInteraction\nEffect Size") 
+
+  #scale_colour_manual(values=c("black","red"))+
+  annotate("text", x = res_merged["ENSMUSG00000047638",]$WT.log2FoldChange + 1.0, 
+           y = res_merged["ENSMUSG00000047638",]$hnf1b.log2FoldChange - 0.2, label = "FXR")
+
 abline(h=0,col="red2")
 #res_merged[identify(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,labels=res_merged$mgi),]
+
+res_merged["ENSMUSG00000047638",]
+gg_plotCounts("ENSMUSG00000059336")
 ```
 
 ## load Karam's Direct Target List
@@ -313,15 +339,19 @@ identify(ft$WT.log2FoldChange,ft$Hnf1b.log2FoldChange,labels=ft$'MGI Symbol')
 
 ## Remade res_merged to get the signs correct
 ```{r}
-temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj","Effect Size","Direct Target","Nearby Peak")]
-colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj","Effect_Size","Direct_Target","Nearby Peak")
+temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj","Effect Size","Nearby Peak","int","int.padj")]
+colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj","Effect_Size","Nearby Peak","Interaction","Interaction.Padj")
 #Keep Karam's Peaks
-temp<-temp[ft[,1],]
-temp$`Nearby Peak`<-factor(ifelse(temp$`Nearby Peak`,"Bound by Hnf1b","Not Bound"))
+#temp<-temp[ft[,1],]
+#temp$`Nearby Peak`<-factor(ifelse(temp$`Nearby Peak`,"Bound by Hnf1b","Not Bound"))
+
+nrow(temp<-temp[abs(temp$Interaction) > 1 & temp$Interaction.Padj <0.05,])
 
 dim(x<-temp[with(temp,order(-WT.log2FoldChange)),])
 hist(x$WT.log2FoldChange,breaks = 100)
-dim(x<-x[abs(x$WT.log2FoldChange) > 1.0,])
+dim(x<-x[abs(x$WT.log2FoldChange) > 1.0 & x$WT.padj < 0.05,])
+table(x$`Nearby Peak`)
+dim(x<-x[x$`Nearby Peak`==1,])
 
 adf<-x[,"Nearby Peak",drop=F]
 ann_colors = list( `Nearby Peak` = c("Not Bound"="white", "Bound by Hnf1b"="black") )
@@ -333,6 +363,47 @@ pheatmap(x[,c("WT.log2FoldChange","Hnf1b.log2FoldChange")],cluster_rows=F,cluste
 
 ## Barchart
 ```{r}
+rownames(x)
+f<-as.data.frame(fpkm(cds2))
 
+remove_X <- function(s) {substr(s,1,nchar(s)-2)}
+
+colnames(f)<-sapply(strsplit(colnames(f),"_"),function(x) x[1]) %>% gsub("-","_",.) 
+f<-f[rownames(f) %in% rownames(x),]
+f<-as.data.frame(f) %>% 
+  cbind(Gene = rownames(f)) %>% 
+  tidyr::gather(Sample,Value,Control_A:Mif_Nacl_C) %>% 
+  dplyr::mutate(Sample=remove_X(Sample)) %>% 
+  dplyr::group_by(Sample,Gene) %>% dplyr::summarise(fpkm=log2(mean(Value))) %>% 
+  tidyr::spread(Sample,fpkm)
+
+idx<-match(f$Gene,mgi$ensembl_gene_id)
+f$label <- mgi[idx,]$mgi_symbol
+
+idx<-match(f$Gene,rownames(resDF))
+f$effect_size<-resDF[idx,]$log2FoldChange
+f$Effect<-factor(ifelse(f$effect_size < 0,"Failure to Up Regulate","Failure to Down Regulate"),levels=c("Failure to Up Regulate","Failure to Down Regulate"))
+
+f<-f[with(f,order(effect_size)),]
+
+f$log2fc<-f$Control_Nacl-f$Control
+f<-f[with(f,order(-log2fc)),]
+
+f2<-as.matrix(f[,2:5])
+rownames(f2)<-f$label
+Heatmap(f2,cluster_columns = FALSE,km=2)
+
+#ha = HeatmapAnnotation(barplot = anno_barplot(f$effect_size))
+
+ha <- HeatmapAnnotation(Effect_Size = row_anno_barplot(f$effect_size, baseline = 0, gp = gpar(fill = ifelse(f$effect_size > 0, "red", "green")),axis = TRUE),which='row',width = unit(2, "cm"),name="Interaction\nEffect\nSize")
+
+
+h<-Heatmap(f2,clustering_distance_rows = "pearson",cluster_rows=FALSE,
+           cluster_columns = FALSE,name="Mean\nLog2(FPKM)")
+
+#split=f$Effect
+#pdf("test.pdf",width=6,height=5)
+h+ha
+#dev.off()
 ```
 
