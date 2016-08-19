@@ -1,0 +1,2 @@
+macs2 callpeak --call-summits -c igg_rep1_SRR2124926.dedup.unique.bam  -t hnf1b_rep1_SRR2124924.dedup.unique.bam -n hnf1b_rep1 -g mm
+macs2 callpeak --call-summits -c igg_rep2_SRR2124927.dedup.unique.bam  -t hnf1b_rep2_SRR2124925.dedup.unique.bam -n hnf1b_rep2 -g mm

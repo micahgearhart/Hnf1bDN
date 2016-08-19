@@ -1,0 +1,38 @@
+#!/bin/bash -l
+i=$1
+file_R1=$1
+file_R2="${file_R1/R1/R2}"
+base_R1=$( basename "$file_R1" )
+base_R2="${base_R1/R1/R2}"
+j="${base_R1%%.*}"
+i="${j/_R1_001/}"
+#gzip -c $file > $i.gz
+#echo $file_R1
+#echo $base_R2
+#echo $i
+
+#use STAR to map PE reads
+/home/bardwell/shared/STAR/bin/Linux_x86_64_static/STAR \
+--genomeDir /home/bardwell/shared/STAR_GENOME/GRCm38/ \
+--genomeLoad LoadAndKeep \
+--runThreadN 4 \
+--readFilesIn fastq/$i.R1_trimmed.fastq.gz fastq/$i.R2_trimmed.fastq.gz \
+--readFilesCommand zcat \
+--outSAMtype BAM Unsorted \
+--limitBAMsortRAM 30000000000 \
+--outFileNamePrefix GRCm38/$i. \
+--quantMode GeneCounts
+
+
+#sort the bam file
+#samtools sort $j $i.bowtie
+#create the index file
+#samtools index $i.bowtie.bam
+
+#bedtools genomecov -bg -ibam $i.bowtie.bam > $i.bowtie.bedGraph
+
+
+#/home/bardwell/shared/bedGraphToBigWig $i.bowtie.bedGraph \
+#/panfs/roc/rissdb/genomes/Mus_musculus/GRCm38_canon/seq/GRCm38_canon.len \
+#$i.bowtie.bigWig
+

@@ -1,0 +1,33 @@
+#!/bin/bash -l
+#PBS -l mem=256gb,nodes=1:ppn=24,walltime=8:00:00 
+#PBS -m a
+#PBS -M gearh006@umn.edu 
+#PBS -q ram1t 
+
+module load java parallel
+
+wd=/home/igarash0/gearhart/Project_004
+dd=/home/igarash0/data_release/umgc/hiseq/160624_D00635_0138_BC95MPANXX/Igarashi_Project_004/
+
+cd $wd
+
+#TRIM the READS USING PARALLEL
+#ls $dd/*R1*.fastq | parallel ./trim.script
+
+#MAP USING STAR
+#ls fastq/*.R1_*.fastq.gz | parallel --jobs 6 ./map.script
+
+#remove genome index from memory
+#/home/bardwell/shared/STAR/bin/Linux_x86_64_static/STAR --genomeLoad Remove
+
+#SORT THE BAM FILES IN PARALLEL
+module load samtools/1.0_BCFTools_HTSLib bedtools
+#ls GRCm38/*.Aligned.out.bam | parallel ./sort.script
+
+#COUNT READS
+LANG=en_US.UTF-8
+PATH=/home/bardwell/shared/rstudio-0.99.447/bin/pandoc:$PATH
+module load R/3.3.1
+export R_LIBS_USER="/panfs/roc/groups/10/bardwell/shared/R"
+
+echo "rmarkdown::render('summarizeOverlaps.Rmd')" | R --vanilla

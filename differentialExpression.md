@@ -643,14 +643,6 @@ Figure 3D Heatmap
                      c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj","Nearby Peak","int","int.padj")]
     colnames(x)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj","Nearby Peak","Interaction","Interaction.Padj")
 
-    #dim(x<-temp[with(temp,order(-WT.log2FoldChange)),])
-    #nrow(temp<-temp[abs(temp$Interaction) > 1 & temp$Interaction.Padj <0.05,])
-    #hist(x$WT.log2FoldChange,breaks = 100)
-    #dim(x<-x[abs(x$WT.log2FoldChange) > 1.0 & x$WT.padj < 0.05,])
-    #table(x$`Nearby Peak`)
-    #dim(x<-x[x$`Nearby Peak`==1,])
-    #rownames(x)
-
     #Get FPKM values for Genes in x
     f<-as.data.frame(fpkm(cds2))
 

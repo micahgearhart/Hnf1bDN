@@ -1,0 +1,15 @@
+#!/bin/bash -l
+j=$1
+i="${j%%.*}"
+
+#Sort bam outside of STAR
+samtools sort $j $i
+
+#create the index file
+samtools index $i.bam
+
+#Make a BigWig Coverage File for Easy Viewing in IGV
+#bedtools genomecov -split -bg -ibam $i.bam > $i.bedGraph
+#/home/bardwell/shared/bedGraphToBigWig $i.bedGraph \
+#/home/bardwell/shared/STAR_GENOME/GRCm38/chrNameLength.txt $i.bigWig
+
