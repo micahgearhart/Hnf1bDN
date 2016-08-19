@@ -8,6 +8,11 @@ Load Libraries
     library(ggplot2)
     library(magrittr)
     library(biomaRt)
+    library(ChIPpeakAnno)
+    library(Mus.musculus)
+    library(goseq)
+    library(ComplexHeatmap)
+    library(gridExtra)
 
     ts<-format(Sys.time(), "%a_%b_%d_%Y_%H%M")
     cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -23,6 +28,15 @@ Get annotation data from biomaRt
     save(ens84,file="ens84_mouse.rdata")
     save(mgi,file="mgi.rdata")
 
+    #Need TSS data for ChIP Annotation
+    tss<-getAnnotation(ensembl_84,featureType="TSS")
+    save(tss,file="tss.rdata")
+
+Summarize Overlaps
+------------------
+
+Run summarizeOverlaps.Rmd on HPC cluster.
+
 EDA
 ---
 
@@ -32,6 +46,8 @@ EDA
     cds$filename<-rownames(colData(cds))
     colData(cds)$genotype<-as.factor(sapply(strsplit(rownames(colData(cds)),"-"),function(x){x[1]}))
     colData(cds)$salt<-factor(ifelse(sapply(strsplit(rownames(colData(cds)),"-"),function(x){x[2]})=="Nacl","Nacl","noSalt"),levels=c("noSalt","Nacl"))
+
+    #PCA plot by Group
     plotPCA(DESeqTransform(cds),intgroup=c("salt","genotype"))+
       scale_color_manual(values=cbPalette)  + theme_bw()
 
@@ -52,9 +68,13 @@ EDA
 
     ## fitting model and testing
 
+    #Plot Hnf1b Counts
     plotCounts(cds,"ENSMUSG00000020679",intgroup=c("salt","genotype"),returnData=F)
 
 ![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-2-1.png)
+
+ggplot version of plotCounts to facet by genotype
+-------------------------------------------------
 
     gg_plotCounts<-function(x="ENSMUSG00000020679") {
       if (substr(x,1,7)=="ENSMUSG") {
@@ -65,15 +85,15 @@ EDA
       }
       
     plotCounts(cds,x,intgroup=c("salt","genotype"),returnData=T) %>% 
-      ggplot(aes(x=genotype, y=count)) +
-      geom_point(position=position_jitter(w=0.1,h=0)) + ggtitle(paste0(x,":",title)) +
+      ggplot(aes(x=salt, y=count)) +
+      geom_point(position=position_jitter(w=0.1,h=0)) + ggtitle(paste0(x,"\n",title)) +
      # scale_y_log10(breaks=c(25,100,400)) + 
      # scale_y_continuous(trans="log2") + ylim(0,25000) +
       expand_limits(x=0, y = 0) +
-      facet_grid(~salt) + theme_bw()
+      facet_grid(~genotype) + theme_bw()
       }
 
-    gg_plotCounts("Hnf1b")
+    gg_plotCounts("Nr1h4")
 
 ![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-3-1.png)
 
@@ -85,17 +105,17 @@ Look for genes with High Interaction Term
     ## [1] "Intercept"               "genotype_Mif_vs_Control"
     ## [3] "salt_Nacl_vs_noSalt"     "genotypeMif.saltNacl"
 
-    res<-results(cds, name="genotypeMif.saltNacl")
+    res<-results(cds, name="genotypeMif.saltNacl",alpha=0.05,lfcThreshold = 1)
     summary(res)
 
     ## 
     ## out of 32627 with nonzero total read count
-    ## adjusted p-value < 0.1
-    ## LFC > 0 (up)     : 2643, 8.1% 
-    ## LFC < 0 (down)   : 3279, 10% 
+    ## adjusted p-value < 0.05
+    ## LFC > 0 (up)     : 55, 0.17% 
+    ## LFC < 0 (down)   : 33, 0.1% 
     ## outliers [1]     : 0, 0% 
-    ## low counts [2]   : 13570, 42% 
-    ## (mean count < 5)
+    ## low counts [2]   : 12337, 38% 
+    ## (mean count < 3)
     ## [1] see 'cooksCutoff' argument of ?results
     ## [2] see 'independentFiltering' argument of ?results
 
@@ -104,82 +124,788 @@ Look for genes with High Interaction Term
     resDF<-resDF[with(resDF,order(-log2FoldChange)),]
     idx<-match(rownames(resDF),mgi$ensembl_gene_id)
     resDF$mgi<-mgi[idx,"mgi_symbol"]
-    head(resDF)
-
-    ##                      baseMean log2FoldChange    lfcSE     stat
-    ## ENSMUSG00000059336  16.803167       9.041953 1.908058 4.738826
-    ## ENSMUSG00000109517   8.245258       6.036978 1.708038 3.534453
-    ## ENSMUSG00000071047   6.705180       5.274840 2.148888 2.454683
-    ## ENSMUSG00000021799   6.340113       5.229401 2.069298 2.527137
-    ## ENSMUSG00000031101  10.311104       5.103819 1.573051 3.244535
-    ## ENSMUSG00000036295 115.987316       5.017252 1.004011 4.997210
-    ##                          pvalue         padj     mgi
-    ## ENSMUSG00000059336 2.149603e-06 2.907381e-05 Slc14a1
-    ## ENSMUSG00000109517 4.086203e-04 2.865003e-03        
-    ## ENSMUSG00000071047 1.410088e-02 5.428697e-02   Ces1a
-    ## ENSMUSG00000021799 1.149966e-02 4.631211e-02    Opn4
-    ## ENSMUSG00000031101 1.176425e-03 7.032351e-03   Sash3
-    ## ENSMUSG00000036295 5.816560e-07 8.917633e-06   Lrrn3
-
-    gg_plotCounts("Slc14a1")
-
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-1.png)
-
-    gg_plotCounts("Lrrn3")
-
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-2.png)
-
-    tail(resDF)
-
-    ##                      baseMean log2FoldChange     lfcSE       stat
-    ## ENSMUSG00000040026  64.302005      -4.715037 1.4969759  -3.149708
-    ## ENSMUSG00000053063   7.365622      -4.728817 1.9185122  -2.464836
-    ## ENSMUSG00000050808   7.643249      -4.896977 1.9660591  -2.490758
-    ## ENSMUSG00000046049   6.069607      -5.619324 1.7556885  -3.200639
-    ## ENSMUSG00000039238 173.853233      -5.635198 0.4196894 -13.427068
-    ## ENSMUSG00000028280   6.456827      -5.900826 1.5244094  -3.870893
-    ##                          pvalue         padj     mgi
-    ## ENSMUSG00000040026 1.634338e-03 9.280567e-03    Saa3
-    ## ENSMUSG00000053063 1.370762e-02 5.319202e-02 Clec12a
-    ## ENSMUSG00000050808 1.274709e-02 5.025266e-02   Muc15
-    ## ENSMUSG00000046049 1.371234e-03 7.993764e-03   Rp1l1
-    ## ENSMUSG00000039238 4.197029e-41 1.142611e-38  Zfp750
-    ## ENSMUSG00000028280 1.084372e-04 9.111502e-04  Gabrr1
-
-    gg_plotCounts("Saa3")
-
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-3.png)
-
-    gg_plotCounts("Zfp750")
-
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-4.png)
-
     resDF<-resDF[with(resDF,order(padj)),]
     head(resDF)
 
-    ##                    baseMean log2FoldChange      lfcSE      stat
-    ## ENSMUSG00000029372 1387.467       4.606230 0.15845529  29.06959
-    ## ENSMUSG00000031538 9789.763      -1.831422 0.06306890 -29.03843
-    ## ENSMUSG00000040998 8210.628      -2.267864 0.08705569 -26.05072
-    ## ENSMUSG00000029722 4025.367       1.500072 0.06098025  24.59931
-    ## ENSMUSG00000002365 8026.159      -1.430541 0.05934718 -24.10462
-    ## ENSMUSG00000021822 3029.456       1.771738 0.07366780  24.05038
-    ##                           pvalue          padj   mgi
-    ## ENSMUSG00000029372 8.703700e-186 1.658664e-181  Ppbp
-    ## ENSMUSG00000031538 2.153975e-185 2.052415e-181  Plat
-    ## ENSMUSG00000040998 1.320242e-149 8.386620e-146  Npnt
-    ## ENSMUSG00000029722 1.284969e-133 6.121913e-130 Agfg2
-    ## ENSMUSG00000002365 2.236009e-128 8.522323e-125  Snx9
-    ## ENSMUSG00000021822 8.272104e-128 2.627358e-124  Plau
+    ##                     baseMean log2FoldChange      lfcSE      stat
+    ## ENSMUSG00000029372 1387.4673       4.606230 0.15845529  22.75866
+    ## ENSMUSG00000047638  392.1129      -3.270643 0.15009656 -15.12788
+    ## ENSMUSG00000040998 8210.6283      -2.267864 0.08705569 -14.56382
+    ## ENSMUSG00000057315 2196.7925       2.446659 0.10394903  13.91700
+    ## ENSMUSG00000031538 9789.7632      -1.831422 0.06306890 -13.18276
+    ## ENSMUSG00000042599 1238.9454      -2.920010 0.14850818 -12.92865
+    ##                           pvalue          padj      mgi
+    ## ENSMUSG00000029372 1.177978e-114 2.390118e-110     Ppbp
+    ## ENSMUSG00000047638  1.060578e-51  1.075956e-47    Nr1h4
+    ## ENSMUSG00000040998  4.771390e-48  3.227050e-44     Npnt
+    ## ENSMUSG00000057315  4.994128e-44  2.533271e-40 Arhgap24
+    ## ENSMUSG00000031538  1.102831e-39  4.475287e-36     Plat
+    ## ENSMUSG00000042599  3.102228e-38  1.049070e-34    Kdm7a
 
-    gg_plotCounts("Ppbp")
+    resDF["ENSMUSG00000047638",]
 
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-5.png)
+    ##                    baseMean log2FoldChange     lfcSE      stat
+    ## ENSMUSG00000047638 392.1129      -3.270643 0.1500966 -15.12788
+    ##                          pvalue         padj   mgi
+    ## ENSMUSG00000047638 1.060578e-51 1.075956e-47 Nr1h4
 
-    gg_plotCounts("Nr1h4")
+    g1<-gg_plotCounts("Slc14a1")
+    g2<-gg_plotCounts("Lrrn3")
+    tail(resDF)
 
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-6.png)
+    ##                     baseMean log2FoldChange    lfcSE      stat      pvalue
+    ## ENSMUSG00000099472  4.625568      -4.614580 1.924058 -1.878624 0.060295884
+    ## ENSMUSG00000040026 64.302005      -4.715037 1.496976 -2.481694 0.013075937
+    ## ENSMUSG00000053063  7.365622      -4.728817 1.918512 -1.943598 0.051943913
+    ## ENSMUSG00000050808  7.643249      -4.896977 1.966059 -1.982126 0.047465112
+    ## ENSMUSG00000086774  3.056339      -5.047926 1.619951 -2.498796 0.012461615
+    ## ENSMUSG00000046049  6.069607      -5.619324 1.755689 -2.631061 0.008511866
+    ##                    padj     mgi
+    ## ENSMUSG00000099472    1 Gm29539
+    ## ENSMUSG00000040026    1    Saa3
+    ## ENSMUSG00000053063    1 Clec12a
+    ## ENSMUSG00000050808    1   Muc15
+    ## ENSMUSG00000086774    1 Gm11915
+    ## ENSMUSG00000046049    1   Rp1l1
 
-    gg_plotCounts("Pkhd1")
+    g3<-gg_plotCounts("Saa3")
+    g4<-gg_plotCounts("Zfp750")
+    grid.arrange(g1,g2,g3,g4,ncol=2)
 
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-7.png)
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-1.png)
+
+    g1<-gg_plotCounts("Ppbp")
+    g2<-gg_plotCounts("Nr1h4")
+    g3<-gg_plotCounts("Pkhd1")
+    g4<-gg_plotCounts("Kdm7a")
+    grid.arrange(g1,g2,g3,g4,ncol=2)
+
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-4-2.png)
+
+    ## Make a list of genes that have high (logFC > 1) Interaction Terms
+    length(interactive_genes<-rownames(resDF[abs(resDF$log2FoldChange) > 1 & resDF$padj < 0.05,]))
+
+    ## [1] 88
+
+Calculate LogFC within each Genotype
+====================================
+
+Control Cells
+-------------
+
+    cds2<-cds
+    cds2$group <- factor(paste0(cds2$genotype, cds2$salt))
+    design(cds2)<- ~ group
+    cds2 <- DESeq(cds2) 
+
+    ## using pre-existing size factors
+
+    ## estimating dispersions
+
+    ## found already estimated dispersions, replacing these
+
+    ## gene-wise dispersion estimates
+
+    ## mean-dispersion relationship
+
+    ## final dispersion estimates
+
+    ## fitting model and testing
+
+    resultsNames(cds2)
+
+    ## [1] "Intercept"          "groupControlNacl"   "groupControlnoSalt"
+    ## [4] "groupMifNacl"       "groupMifnoSalt"
+
+    summary(res_wt<-results(cds2, contrast=c("group","ControlNacl","ControlnoSalt"),alpha=0.05,lfcThreshold = 0))
+
+    ## 
+    ## out of 32627 with nonzero total read count
+    ## adjusted p-value < 0.05
+    ## LFC > 0 (up)     : 4450, 14% 
+    ## LFC < 0 (down)   : 4721, 14% 
+    ## outliers [1]     : 6, 0.018% 
+    ## low counts [2]   : 10480, 32% 
+    ## (mean count < 2)
+    ## [1] see 'cooksCutoff' argument of ?results
+    ## [2] see 'independentFiltering' argument of ?results
+
+    table(ifelse(res_wt$log2FoldChange>1, "up", ifelse(res_wt$log2FoldChange< -1, "down", "no_change")))
+
+    ## 
+    ##      down no_change        up 
+    ##       579     30760      1288
+
+    res_wt<-as.data.frame(res_wt)
+    colnames(res_wt)<-paste0("WT",".",colnames(res_wt))
+
+    summary(res_hnf1b<-results(cds2, contrast=c("group","MifNacl","MifnoSalt")))
+
+    ## 
+    ## out of 32627 with nonzero total read count
+    ## adjusted p-value < 0.1
+    ## LFC > 0 (up)     : 5854, 18% 
+    ## LFC < 0 (down)   : 5629, 17% 
+    ## outliers [1]     : 6, 0.018% 
+    ## low counts [2]   : 7399, 23% 
+    ## (mean count < 1)
+    ## [1] see 'cooksCutoff' argument of ?results
+    ## [2] see 'independentFiltering' argument of ?results
+
+    table(ifelse(res_hnf1b$log2FoldChange>1, "up", ifelse(res_hnf1b$log2FoldChange< -1, "down", "no_change")))
+
+    ## 
+    ##      down no_change        up 
+    ##       657     29884      2086
+
+    res_hnf1b<-as.data.frame(res_hnf1b)
+    colnames(res_hnf1b)<-paste0("hnf1b",".",colnames(res_hnf1b))
+
+    res_merged<-cbind(res_wt,res_hnf1b)
+    head(res_merged)
+
+    ##                     WT.baseMean WT.log2FoldChange   WT.lfcSE    WT.stat
+    ## ENSMUSG00000000001 1.041893e+04        -0.2396384 0.03810011 -6.2897046
+    ## ENSMUSG00000000003 8.099718e-02         0.0000000 0.18835357  0.0000000
+    ## ENSMUSG00000000028 6.492142e+03         0.2311860 0.04090529  5.6517381
+    ## ENSMUSG00000000031 1.217915e+01        -0.3951343 0.39967474 -0.9886398
+    ## ENSMUSG00000000037 1.251645e+00         0.2407248 0.19579819  1.2294535
+    ## ENSMUSG00000000049 4.969969e+00        -0.1024088 0.46509691 -0.2201882
+    ##                       WT.pvalue      WT.padj hnf1b.baseMean
+    ## ENSMUSG00000000001 3.180707e-10 2.668588e-09   1.041893e+04
+    ## ENSMUSG00000000003 1.000000e+00           NA   8.099718e-02
+    ## ENSMUSG00000000028 1.588335e-08 1.091136e-07   6.492142e+03
+    ## ENSMUSG00000000031 3.228394e-01 4.707579e-01   1.217915e+01
+    ## ENSMUSG00000000037 2.189018e-01           NA   1.251645e+00
+    ## ENSMUSG00000000049 8.257246e-01 8.898262e-01   4.969969e+00
+    ##                    hnf1b.log2FoldChange hnf1b.lfcSE hnf1b.stat
+    ## ENSMUSG00000000001          -0.22311423  0.03789816 -5.8872051
+    ## ENSMUSG00000000003          -0.03905830  0.18835357 -0.2073669
+    ## ENSMUSG00000000028           0.38842116  0.04079782  9.5206358
+    ## ENSMUSG00000000031           0.15525812  0.39671780  0.3913566
+    ## ENSMUSG00000000037           0.03860877  0.19552932  0.1974577
+    ## ENSMUSG00000000049           1.16381071  0.45194906  2.5750927
+    ##                    hnf1b.pvalue   hnf1b.padj
+    ## ENSMUSG00000000001 3.927812e-09 2.755696e-08
+    ## ENSMUSG00000000003 8.357233e-01           NA
+    ## ENSMUSG00000000028 1.721228e-21 2.640682e-20
+    ## ENSMUSG00000000031 6.955337e-01 8.055973e-01
+    ## ENSMUSG00000000037 8.434694e-01 9.025491e-01
+    ## ENSMUSG00000000049 1.002132e-02 2.720751e-02
+
+    #res_merged<-res_merged[res_merged$WT.padj < 0.05 & res_merged$WT.baseMean > 100,]
+    res_merged<-subset(res_merged,!(is.na(WT.log2FoldChange) | is.na(hnf1b.log2FoldChange)))
+    dim(res_merged)
+
+    ## [1] 32627    12
+
+    idx<-match(rownames(res_merged),mgi$ensembl_gene_id)
+    res_merged$mgi<-mgi[idx,"mgi_symbol"]
+
+    #Highlight genes with strong interaction term
+    res_merged$iTerm<-rownames(res_merged) %in% interactive_genes
+    summary(idx<-match(rownames(res_merged),rownames(resDF)))
+
+    ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+    ##       1    5073   10150   10150   15220   20290   12337
+
+    res_merged$int<-resDF[idx,"log2FoldChange"]
+    res_merged[is.na(res_merged$int),]<-0
+    res_merged$int.padj<-resDF[idx,"padj"]
+
+    plot(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,pch=16,cex=0.5,
+         xlab="WT Salt Induced Log2FC",
+         ylab="Hnf1b Salt Induced Log2FC",
+         main="Log2FC in Hnf1b DN vs WT Cells",
+         col=ifelse(res_merged$iTerm,"red","black"))
+
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-5-1.png)
+
+    #res_merged[identify(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,labels=res_merged$mgi),]
+
+Figure 3C
+=========
+
+    (g1<-ggplot(res_merged,aes(x=WT.log2FoldChange,y=hnf1b.log2FoldChange)) + geom_point(aes(colour = int)) + theme_bw() +
+      scale_colour_gradient2("Hnf1b:NaCl\nInteraction\nEffect Size") )
+
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-6-1.png)
+
+    ggsave(paste0("Figure3C_scatterPlot_",ts,".jpg"),g1,width=7,height=7,dpi=600)
+
+Use Published ChIP-Seq data to find out which of these targets might be direct or indirect
+==========================================================================================
+
+Use macs2 to call peaks
+-----------------------
+
+    macs2 callpeak --call-summits -c igg_rep1_SRR2124926.dedup.unique.bam  -t hnf1b_rep1_SRR2124924.dedup.unique.bam -n hnf1b_rep1 -g mm
+    macs2 callpeak --call-summits -c igg_rep2_SRR2124927.dedup.unique.bam  -t hnf1b_rep2_SRR2124925.dedup.unique.bam -n hnf1b_rep2 -g mm
+
+Import narrowPeak Files
+-----------------------
+
+    narrowPeakToGRanges<-function(file) {
+      x <- read.table(file,stringsAsFactors=F)
+      gr <-GRanges(seqnames=x$V1, ranges = IRanges(start=x$V2, end=x$V3),
+                   strand="*", score=x$V5, e=x$V7,summit=x$V10)
+      return(gr)
+    }
+
+    hnf1b_rep1<-narrowPeakToGRanges("hnf1b_rep1_peaks.narrowPeak")
+    hnf1b_rep2<-narrowPeakToGRanges("hnf1b_rep2_peaks.narrowPeak")
+    pairs<-findOverlapPairs(hnf1b_rep1,hnf1b_rep2)
+    hnf1b<-pintersect(pairs)
+    head(hnf1b)
+
+    ## GRanges object with 6 ranges and 4 metadata columns:
+    ##       seqnames             ranges strand |     score         e    summit
+    ##          <Rle>          <IRanges>  <Rle> | <integer> <numeric> <integer>
+    ##   [1]        1 [4434859, 4435036]      * |       433  19.83522       126
+    ##   [2]        1 [4577135, 4577268]      * |       105   8.13753        85
+    ##   [3]        1 [4671577, 4671906]      * |        66   6.27267        63
+    ##   [4]        1 [4671577, 4671906]      * |        66   6.27267        63
+    ##   [5]        1 [4671577, 4671906]      * |       147   9.65027       195
+    ##   [6]        1 [4671577, 4671906]      * |       147   9.65027       195
+    ##             hit
+    ##       <logical>
+    ##   [1]         1
+    ##   [2]         1
+    ##   [3]         1
+    ##   [4]         1
+    ##   [5]         1
+    ##   [6]         1
+    ##   -------
+    ##   seqinfo: 21 sequences from an unspecified genome; no seqlengths
+
+Annotate Peaks
+--------------
+
+    #tss<-getAnnotation(ensembl_84,featureType="TSS")
+    #save(tss,file="tss.rdata")
+    load("tss.rdata")
+
+    #Subset to genes that are expressed
+    x<-rownames(res_merged[res_merged$WT.baseMean > 1,])
+    tss<-tss[names(tss) %in% x]
+
+    hnf1b_anno <- annotatePeakInBatch(hnf1b, AnnotationData=tss, output="both", maxgap=100L)
+    summary(hnf1b_anno$shortestDistance)
+
+    ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    ##       0    8014   26040   63540   70070 2261000
+
+    table(hnf1b_anno$insideFeature)
+
+    ## 
+    ##   downstream       inside   overlapEnd overlapStart     upstream 
+    ##         4377         9112           50          303         8007
+
+    p1<-hnf1b_anno[hnf1b_anno$insideFeature=="upstream" & hnf1b_anno$shortestDistance < 50000,]$feature
+    p2<-hnf1b_anno[hnf1b_anno$insideFeature=="inside" | hnf1b_anno$insideFeature=="overlapStart" | hnf1b_anno$insideFeature=="overlapEnd"]$feature
+    p<-unique(c(p1,p2))
+    res_merged$`Nearby Peak`<-rownames(res_merged) %in% p
+    sum(res_merged$`Nearby Peak`)
+
+    ## [1] 5390
+
+Create Output
+-------------
+
+    colnames(res_merged)
+
+    ##  [1] "WT.baseMean"          "WT.log2FoldChange"    "WT.lfcSE"            
+    ##  [4] "WT.stat"              "WT.pvalue"            "WT.padj"             
+    ##  [7] "hnf1b.baseMean"       "hnf1b.log2FoldChange" "hnf1b.lfcSE"         
+    ## [10] "hnf1b.stat"           "hnf1b.pvalue"         "hnf1b.padj"          
+    ## [13] "mgi"                  "iTerm"                "int"                 
+    ## [16] "int.padj"             "Nearby Peak"
+
+    temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj",
+                        "iTerm","int","int.padj","Nearby Peak")]
+    colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj",
+        "Interaction","Interaction.Size","Interaction.padj","Nearby Peak")
+    temp<-temp[with(temp,order(-Interaction.Size)),]
+    head(temp,40)
+
+    ##                       MGI Symbol    baseMean WT.log2FoldChange
+    ## ENSMUSG00000059336       Slc14a1   16.803167     -2.620378e-01
+    ## ENSMUSG00000109517                  8.245258      1.194101e-01
+    ## ENSMUSG00000035916         Ptprq    4.419709     -2.677349e+00
+    ## ENSMUSG00000071047         Ces1a    6.705180      1.551051e-01
+    ## ENSMUSG00000021799          Opn4    6.340113      1.211681e-04
+    ## ENSMUSG00000031101         Sash3   10.311104     -3.830671e-01
+    ## ENSMUSG00000036295         Lrrn3  115.987316      2.091058e+00
+    ## ENSMUSG00000042453          Reln   12.807895      3.729133e-01
+    ## ENSMUSG00000021903       Galnt15   29.528004      2.606467e-01
+    ## ENSMUSG00000053194          Cib4   10.516048     -1.878805e-03
+    ## ENSMUSG00000029372          Ppbp 1387.467255      7.458696e-01
+    ## ENSMUSG00000085573       Gm15418    3.611072     -4.389129e-01
+    ## ENSMUSG00000029379         Cxcl3   13.850413      2.822603e-01
+    ## ENSMUSG00000103878        Gm8197    3.814611      2.901513e-01
+    ## ENSMUSG00000037161         Mgarp    7.385198     -1.015909e-01
+    ## ENSMUSG00000021680         Crhbp    6.860589      2.935090e-01
+    ## ENSMUSG00000007097        Atp1a2    6.250923     -1.051795e+00
+    ## ENSMUSG00000063087       Gm10125   35.109493      1.635405e+00
+    ## ENSMUSG00000033208         S100b   78.285407      9.160978e-01
+    ## ENSMUSG00000086006       Gm13293    8.064271      2.753235e-05
+    ## ENSMUSG00000042041 2010003K11Rik    4.598403      1.922770e-03
+    ## ENSMUSG00000031253         Srpx2    5.391467      1.553357e-01
+    ## ENSMUSG00000015405          Ace2   12.138600     -3.529829e+00
+    ## ENSMUSG00000000197         Nalcn   14.421310      3.547411e-01
+    ## ENSMUSG00000097440        Gm6277   11.953341      4.969631e-01
+    ## ENSMUSG00000012187        Mogat1    3.684888     -1.551680e-01
+    ## ENSMUSG00000026247         Ecel1   25.208761     -2.428081e-03
+    ## ENSMUSG00000024176          Sox8    3.333131     -6.304964e-01
+    ## ENSMUSG00000085639       Gm15410    4.818540     -3.258899e-01
+    ## ENSMUSG00000047528      Als2cr12    3.649819     -9.819100e-01
+    ## ENSMUSG00000034959 5031414D18Rik    6.567312     -1.465695e+00
+    ## ENSMUSG00000056699        Gm5533    4.572428     -2.626530e-01
+    ## ENSMUSG00000047497      Adamts12    8.485731      5.427373e-01
+    ## ENSMUSG00000104616        Gm6069    6.501722      2.293508e-03
+    ## ENSMUSG00000029373           Pf4    4.640568      3.236427e-01
+    ## ENSMUSG00000028463          Car9    4.145038     -6.430976e-01
+    ## ENSMUSG00000106933       Gm43621   11.061293      2.837953e-01
+    ## ENSMUSG00000044824       Olfr545    3.327233     -1.298324e+00
+    ## ENSMUSG00000028836       Slc30a2    3.823711      1.561093e-01
+    ## ENSMUSG00000028940          Hes2    3.031093      6.869440e-01
+    ##                         WT.padj Hnf1b.log2FoldChange   Hnf1b.padj
+    ## ENSMUSG00000059336 7.062472e-01            4.7702487 3.959827e-28
+    ## ENSMUSG00000109517 8.735931e-01            3.6314423 2.504262e-15
+    ## ENSMUSG00000035916 3.435070e-08            0.1427210 8.493364e-01
+    ## ENSMUSG00000071047 8.318289e-01            3.4791114 1.953425e-13
+    ## ENSMUSG00000021799 1.000000e+00            3.1892909 1.835205e-11
+    ## ENSMUSG00000031101 5.578399e-01            2.2827915 5.605729e-08
+    ## ENSMUSG00000036295 7.259907e-08            6.7542913 1.194047e-86
+    ## ENSMUSG00000042453 5.574714e-01            3.7972774 2.204208e-18
+    ## ENSMUSG00000021903 7.073114e-01            5.2020090 1.872854e-38
+    ## ENSMUSG00000053194 1.000000e+00            3.5077326 3.021253e-15
+    ## ENSMUSG00000029372 4.943073e-11            5.2935538 0.000000e+00
+    ## ENSMUSG00000085573 4.901952e-01            1.6428720 1.474367e-03
+    ## ENSMUSG00000029379 6.821777e-01            4.3771304 2.770070e-23
+    ## ENSMUSG00000103878 6.567680e-01            2.6682806 3.763221e-08
+    ## ENSMUSG00000037161 8.893109e-01            2.8054035 1.089494e-09
+    ## ENSMUSG00000021680 6.649598e-01            3.3946417 9.164904e-13
+    ## ENSMUSG00000007097 5.312250e-02            0.1045504 8.737511e-01
+    ## ENSMUSG00000063087 1.786961e-04            5.1461518 2.426304e-41
+    ## ENSMUSG00000033208 4.266787e-02            5.3029771 7.662229e-66
+    ## ENSMUSG00000086006 1.000000e+00            3.0404853 5.878734e-11
+    ## ENSMUSG00000042041 1.000000e+00            2.4289552 7.619142e-07
+    ## ENSMUSG00000031253 8.307481e-01            2.9827645 5.780456e-10
+    ## ENSMUSG00000015405 1.644246e-16           -0.4713419 4.358501e-01
+    ## ENSMUSG00000000197 5.522102e-01            3.3108123 4.447257e-15
+    ## ENSMUSG00000097440 4.066237e-01            3.4529782 2.288073e-15
+    ## ENSMUSG00000012187 8.292273e-01            1.9265833 1.399698e-04
+    ## ENSMUSG00000026247 1.000000e+00            3.5362202 9.367511e-25
+    ## ENSMUSG00000024176 2.942476e-01            1.0139358 6.810160e-02
+    ## ENSMUSG00000085639 6.198984e-01            1.6704511 9.559523e-04
+    ## ENSMUSG00000047528 7.767744e-02            0.8237481 1.527940e-01
+    ## ENSMUSG00000034959 3.130074e-03            0.8457951 1.304685e-01
+    ## ENSMUSG00000056699 7.045207e-01            1.5532853 2.479916e-03
+    ## ENSMUSG00000047497 3.716054e-01            2.8473086 1.417873e-09
+    ## ENSMUSG00000104616 1.000000e+00            2.4409620 2.523526e-07
+    ## ENSMUSG00000029373 6.319876e-01            2.4161649 6.855209e-07
+    ## ENSMUSG00000028463 2.833524e-01            1.1159512 3.612684e-02
+    ## ENSMUSG00000106933 6.714964e-01            3.2361035 4.813502e-14
+    ## ENSMUSG00000044824 1.465091e-02            0.3485105 6.077636e-01
+    ## ENSMUSG00000028836 8.268651e-01            2.4947289 4.021474e-07
+    ## ENSMUSG00000028940 2.370909e-01            1.8909283 1.581495e-04
+    ##                    Interaction Interaction.Size Interaction.padj
+    ## ENSMUSG00000059336           1         9.041953     7.353637e-03
+    ## ENSMUSG00000109517           0         6.036978     4.791729e-01
+    ## ENSMUSG00000035916           0         5.840708     8.319712e-01
+    ## ENSMUSG00000071047           0         5.274840     1.000000e+00
+    ## ENSMUSG00000021799           0         5.229401     1.000000e+00
+    ## ENSMUSG00000031101           0         5.103819     1.000000e+00
+    ## ENSMUSG00000036295           1         5.017252     1.727960e-02
+    ## ENSMUSG00000042453           0         4.711861     4.791729e-01
+    ## ENSMUSG00000021903           0         4.638707     1.000000e+00
+    ## ENSMUSG00000053194           0         4.620494     1.000000e+00
+    ## ENSMUSG00000029372           1         4.606230    2.390118e-110
+    ## ENSMUSG00000085573           0         4.601082     1.000000e+00
+    ## ENSMUSG00000029379           0         4.533045     1.000000e+00
+    ## ENSMUSG00000103878           0         4.512523     1.000000e+00
+    ## ENSMUSG00000037161           0         4.440210     7.213244e-01
+    ## ENSMUSG00000021680           0         4.388765     1.000000e+00
+    ## ENSMUSG00000007097           0         4.305830     1.000000e+00
+    ## ENSMUSG00000063087           0         4.265492     5.420796e-01
+    ## ENSMUSG00000033208           1         4.258763     2.833067e-03
+    ## ENSMUSG00000086006           0         4.208972     1.000000e+00
+    ## ENSMUSG00000042041           0         4.051334     1.000000e+00
+    ## ENSMUSG00000031253           0         4.036300     1.000000e+00
+    ## ENSMUSG00000015405           0         3.993440     9.322745e-01
+    ## ENSMUSG00000000197           0         3.984586     2.625266e-01
+    ## ENSMUSG00000097440           0         3.964811     1.000000e+00
+    ## ENSMUSG00000012187           0         3.945957     1.000000e+00
+    ## ENSMUSG00000026247           0         3.853552     1.000000e+00
+    ## ENSMUSG00000024176           0         3.833952     1.000000e+00
+    ## ENSMUSG00000085639           0         3.802766     1.000000e+00
+    ## ENSMUSG00000047528           0         3.802482     1.000000e+00
+    ## ENSMUSG00000034959           0         3.776568     1.000000e+00
+    ## ENSMUSG00000056699           0         3.755789     1.000000e+00
+    ## ENSMUSG00000047497           0         3.667204     1.000000e+00
+    ## ENSMUSG00000104616           0         3.661299     1.000000e+00
+    ## ENSMUSG00000029373           0         3.650451     1.000000e+00
+    ## ENSMUSG00000028463           0         3.630945     1.000000e+00
+    ## ENSMUSG00000106933           0         3.613879     1.000000e+00
+    ## ENSMUSG00000044824           0         3.563140     1.000000e+00
+    ## ENSMUSG00000028836           0         3.517352     1.000000e+00
+    ## ENSMUSG00000028940           0         3.424372     1.000000e+00
+    ##                    Nearby Peak
+    ## ENSMUSG00000059336       FALSE
+    ## ENSMUSG00000109517       FALSE
+    ## ENSMUSG00000035916       FALSE
+    ## ENSMUSG00000071047       FALSE
+    ## ENSMUSG00000021799       FALSE
+    ## ENSMUSG00000031101       FALSE
+    ## ENSMUSG00000036295       FALSE
+    ## ENSMUSG00000042453        TRUE
+    ## ENSMUSG00000021903       FALSE
+    ## ENSMUSG00000053194       FALSE
+    ## ENSMUSG00000029372       FALSE
+    ## ENSMUSG00000085573        TRUE
+    ## ENSMUSG00000029379       FALSE
+    ## ENSMUSG00000103878       FALSE
+    ## ENSMUSG00000037161       FALSE
+    ## ENSMUSG00000021680       FALSE
+    ## ENSMUSG00000007097       FALSE
+    ## ENSMUSG00000063087        TRUE
+    ## ENSMUSG00000033208       FALSE
+    ## ENSMUSG00000086006       FALSE
+    ## ENSMUSG00000042041       FALSE
+    ## ENSMUSG00000031253       FALSE
+    ## ENSMUSG00000015405       FALSE
+    ## ENSMUSG00000000197       FALSE
+    ## ENSMUSG00000097440        TRUE
+    ## ENSMUSG00000012187       FALSE
+    ## ENSMUSG00000026247       FALSE
+    ## ENSMUSG00000024176       FALSE
+    ## ENSMUSG00000085639       FALSE
+    ## ENSMUSG00000047528        TRUE
+    ## ENSMUSG00000034959       FALSE
+    ## ENSMUSG00000056699        TRUE
+    ## ENSMUSG00000047497        TRUE
+    ## ENSMUSG00000104616       FALSE
+    ## ENSMUSG00000029373       FALSE
+    ## ENSMUSG00000028463       FALSE
+    ## ENSMUSG00000106933       FALSE
+    ## ENSMUSG00000044824       FALSE
+    ## ENSMUSG00000028836       FALSE
+    ## ENSMUSG00000028940       FALSE
+
+    write.csv(temp,file=paste0("hnf1b_nacl_log2FCs_wChIPdata_",ts,".csv"),quote=F)
+
+Upload Output to googlesheets
+-----------------------------
+
+    options(httr_oob_default=TRUE)
+    gs_auth(new_user = TRUE)
+    temp_gs<-googlesheets::gs_upload(paste0("hnf1b_nacl_log2FCs_wChIPdata_",ts,".csv")
+    #googlesheets::gs_browse(temp_gs)
+
+GO Analysis
+-----------
+
+    expressed_genes<-rownames(res_wt[res_wt$WT.baseMean > 1 & !is.na(res_wt$WT.log2FoldChange) & !is.na(res_wt$WT.padj),])
+    gocat<-AnnotationDbi::select(Mus.musculus,keys=expressed_genes,keytype="ENSEMBL",columns="GOID")
+
+    ## 'select()' returned 1:many mapping between keys and columns
+
+    gocat<-gocat[gocat$ONTOLOGY=="BP",c("ENSEMBL","GOID")]
+    gocat$GOID<-as.character(gocat$GOID)
+    gocat.list<-split(gocat$GOID,gocat$ENSEMBL)
+    gocat.list[["ENSMUSG00000047638"]] #fxr
+
+    ##  [1] "GO:0000122" "GO:0000122" "GO:0001080" "GO:0006109" "GO:0006351"
+    ##  [6] "GO:0006355" "GO:0006357" "GO:0006366" "GO:0007043" "GO:0007219"
+    ## [11] "GO:0008206" "GO:0008206" "GO:0010804" "GO:0010988" "GO:0030522"
+    ## [16] "GO:0032088" "GO:0032689" "GO:0032692" "GO:0032703" "GO:0032715"
+    ## [21] "GO:0032720" "GO:0034142" "GO:0034162" "GO:0034255" "GO:0034971"
+    ## [26] "GO:0035356" "GO:0035774" "GO:0038183" "GO:0038183" "GO:0038185"
+    ## [31] "GO:0042593" "GO:0042742" "GO:0043066" "GO:0043124" "GO:0043124"
+    ## [36] "GO:0043401" "GO:0045944" "GO:0045944" "GO:0045944" "GO:0046628"
+    ## [41] "GO:0050728" "GO:0055089" "GO:0061178" "GO:0070328" "GO:0070858"
+    ## [46] "GO:0071222" "GO:0071398" "GO:0071417" "GO:0071638" "GO:0072615"
+    ## [51] "GO:1902714" "GO:1904179" "GO:1904468" "GO:2000188" "GO:2000213"
+    ## [56] "GO:2001250" "GO:2001275"
+
+    gocat.list[["ENSMUSG00000030109"]] #Slc6a12
+
+    ## [1] "GO:0006810" "GO:0006836" "GO:0007268" "GO:0009992" "GO:0015812"
+
+    gocat.list[["ENSMUSG00000043760"]] #Pkhd1
+
+    ##  [1] "GO:0001822" "GO:0006874" "GO:0008284" "GO:0010824" "GO:0032006"
+    ##  [6] "GO:0032088" "GO:0042384" "GO:0043066" "GO:0051898" "GO:0070372"
+
+    #bias data
+    bd<-sum(width(reduce(ranges(genehits))))
+    bd["ENSMUSG00000047638"]
+
+    ## ENSMUSG00000047638 
+    ##               2303
+
+    #bd<-bd[names(bd) %in% expressed_genes]
+    head(bd<-bd[expressed_genes])
+
+    ## ENSMUSG00000000001 ENSMUSG00000000028 ENSMUSG00000000031 
+    ##               3262               2252               2372 
+    ## ENSMUSG00000000049 ENSMUSG00000000056 ENSMUSG00000000058 
+    ##               1594               4806               3335
+
+    #bias data
+    temp<-res_wt[expressed_genes,]
+    degs<-as.numeric(temp$WT.padj < 0.05 & abs(temp$WT.log2FoldChange ) > 1)
+    names(degs)<-rownames(temp)
+    table(degs)
+
+    ## degs
+    ##     0     1 
+    ## 20332  1809
+
+    summary(degs)
+
+    ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    ##  0.0000  0.0000  0.0000  0.0817  0.0000  1.0000
+
+    listGO<-function(goid) {
+    print(OrganismDbi::select(Mus.musculus,keys=goid,keytype="GOID",columns="TERM"))
+    tg<-OrganismDbi::select(Mus.musculus,keys=gocat[grep(goid,gocat$GOID),"ENSEMBL"],keytype="ENSEMBL",columns="SYMBOL")
+    tg$deg<-degs[tg$ENSEMBL]
+    tg
+    }
+
+    pwf<-nullp(degs,bias.data=bd)
+
+    ## Warning in pcls(G): initial point very close to some inequality constraints
+
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-11-1.png)
+
+    GO.wall<-goseq(pwf,gene2cat=gocat.list)
+
+    ## Using manually entered categories.
+
+    ## For 7546 genes, we could not find any categories. These genes will be excluded.
+
+    ## To force their use, please run with use_genes_without_cat=TRUE (see documentation).
+
+    ## This was the default behavior for version 1.15.1 and earlier.
+
+    ## Calculating the p-values...
+
+    ## 'select()' returned 1:1 mapping between keys and columns
+
+    head(GO.wall,20) %>%
+      dplyr::mutate(term=factor(term,levels=rev(term))) %>%
+    ggplot(aes(x=term,y=-log10(over_represented_pvalue))) +
+      geom_bar(stat="identity",fill="red") +
+      coord_flip() + xlab("") +
+      theme_bw() 
+
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-11-2.png)
+
+    #temp<-listGO("GO:0006814")
+    #head(temp)
+    #res_merged$sodium_transport<-rownames(res_merged) %in% temp$ENSEMBL
+    #res_merged[res_merged$sodium_transport & res_merged$`Effect Size` > 1,]$mgi
+
+    #temp<-listGO("GO:0006811")
+    #head(temp)
+    #res_merged$ion_transport<-rownames(res_merged) %in% temp$ENSEMBL
+    #res_merged[res_merged$ion_transport & res_merged$`Effect Size` > 1,]$mgi
+
+Compare Wt vs Hnf1b DN expression profiles in the absence of Salt
+-----------------------------------------------------------------
+
+    summary(res_genotype<-results(cds2, contrast=c("group","MifnoSalt","ControlnoSalt"),alpha=0.05,lfcThreshold = 1))
+
+    ## 
+    ## out of 32627 with nonzero total read count
+    ## adjusted p-value < 0.05
+    ## LFC > 0 (up)     : 596, 1.8% 
+    ## LFC < 0 (down)   : 312, 0.96% 
+    ## outliers [1]     : 6, 0.018% 
+    ## low counts [2]   : 9247, 28% 
+    ## (mean count < 1)
+    ## [1] see 'cooksCutoff' argument of ?results
+    ## [2] see 'independentFiltering' argument of ?results
+
+    colnames(res_genotype)<-paste0("Wt_vs_DN",".",colnames(res_genotype))
+    #head(res_genotype<-as.data.frame(res_genotype))
+    #head(res_genotype[!(is.na(res_genotype$Wt_vs_DN.padj) | is.na(res_genotype$Wt_vs_DN.log2FoldChange)),])
+    res_genotype<-res_genotype[!(is.na(res_genotype$Wt_vs_DN.padj) | is.na(res_genotype$Wt_vs_DN.log2FoldChange)),]
+    idx<-match(rownames(res_genotype),mgi$ensembl_gene_id)
+    res_genotype$mgi<-mgi[idx,]$mgi_symbol
+    res_genotype<-res_genotype[with(res_genotype,order(Wt_vs_DN.padj,Wt_vs_DN.log2FoldChange)),]
+    head(res_genotype)
+
+    ##  
+    ##  
+    ## DataFrame with 6 rows and 7 columns
+    ##                    Wt_vs_DN.baseMean Wt_vs_DN.log2FoldChange
+    ##                            <numeric>               <numeric>
+    ## ENSMUSG00000031881         35055.193               -2.567499
+    ## ENSMUSG00000043252          9089.217                3.635010
+    ## ENSMUSG00000004035          1932.810                6.111462
+    ## ENSMUSG00000038375         13256.011                2.767624
+    ## ENSMUSG00000020990          3024.029               -3.570332
+    ## ENSMUSG00000037434          2632.566                2.768927
+    ##                    Wt_vs_DN.lfcSE Wt_vs_DN.stat Wt_vs_DN.pvalue
+    ##                         <numeric>     <numeric>       <numeric>
+    ## ENSMUSG00000031881     0.03834642     -40.87731    0.000000e+00
+    ## ENSMUSG00000043252     0.05892698      44.71653    0.000000e+00
+    ## ENSMUSG00000004035     0.13953505      36.63210   8.820334e-294
+    ## ENSMUSG00000038375     0.04846876      36.46934   3.396786e-291
+    ## ENSMUSG00000020990     0.07088246     -36.26190   6.453807e-288
+    ## ENSMUSG00000037434     0.05001083      35.37088   4.789168e-274
+    ##                    Wt_vs_DN.padj         mgi
+    ##                        <numeric> <character>
+    ## ENSMUSG00000031881  0.000000e+00       Cdh16
+    ## ENSMUSG00000043252  0.000000e+00      Tmem64
+    ## ENSMUSG00000004035 6.872216e-290       Gstm7
+    ## ENSMUSG00000038375 1.984912e-287   Trp53inp2
+    ## ENSMUSG00000020990 3.017026e-284       Cdkl1
+    ## ENSMUSG00000037434 1.865700e-270     Slc30a1
+
+    res_genotype$`Nearby Peak`<-rownames(res_genotype) %in% p
+
+    temp<-res_genotype[,c("mgi","Wt_vs_DN.baseMean","Wt_vs_DN.log2FoldChange","Wt_vs_DN.padj","Nearby Peak")]
+    gg_plotCounts("Pde4c")
+
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-12-1.png)
+
+    write.csv(temp,file=paste0("Wt_vs_DN_log2FCs_wChIPdata_",ts,".csv"),quote=F)
+
+Output to Google Sheets
+-----------------------
+
+    options(httr_oob_default=TRUE)
+    googlesheets::gs_auth(new_user = TRUE)
+    temp_gs<-googlesheets::gs_upload(paste0("Wt_vs_DN_log2FCs_wChIPdata_",ts,".csv"))
+    #googlesheets::gs_browse(temp_gs)
+
+Heatmap of Genes that are direct targets and have an abs(Effect size) &gt; 1
+============================================================================
+
+    #head(res_merged)
+    #
+    #nrow(temp<-res_merged[abs(res_merged$WT.log2FoldChange) > 0.5 & abs(res_merged$hnf1b.log2FoldChange) < 0.1,])
+    #nrow(temp<-res_merged[abs(res_merged$WT.log2FoldChange) > 0.5,])
+    #nrow(temp<-res_merged)
+    #plot(temp$WT.log2FoldChange,temp$hnf1b.log2FoldChange,cex=0.5,pch=16,col=ifelse(temp$`Nearby Peak`,"red","black"))
+    #identify(temp$WT.log2FoldChange,temp$hnf1b.log2FoldChange,labels=temp$mgi)
+
+    #ftu<-read_excel("failed_to_upregulate.xlsx")
+    #ftu<-ftu[,1:10]
+    #ftd<-read_excel("failed_to_downregulate.xlsx")
+    #ftd<-ftd[,1:10]
+    #ft<-as.data.frame(rbind(ftu,ftd))
+    #plot(ft$WT.log2FoldChange,ft$Hnf1b.log2FoldChange,cex=0.5,pch=16,col=ifelse(ft$`Nearby Peak`,"red","black"))
+    #identify(ft$WT.log2FoldChange,ft$Hnf1b.log2FoldChange,labels=ft$'MGI Symbol')
+
+Remade res\_merged to get the signs correct
+-------------------------------------------
+
+    temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj","Nearby Peak","int","int.padj")]
+    colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj","Nearby Peak","Interaction","Interaction.Padj")
+    #Keep Karam's Peaks
+    #temp<-temp[ft[,1],]
+    #temp$`Nearby Peak`<-factor(ifelse(temp$`Nearby Peak`,"Bound by Hnf1b","Not Bound"))
+
+    nrow(temp<-temp[abs(temp$Interaction) > 1 & temp$Interaction.Padj <0.05,])
+
+    ## [1] 88
+
+    dim(x<-temp[with(temp,order(-WT.log2FoldChange)),])
+
+    ## [1] 88  9
+
+    hist(x$WT.log2FoldChange,breaks = 100)
+
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-16-1.png)
+
+    dim(x<-x[abs(x$WT.log2FoldChange) > 1.0 & x$WT.padj < 0.05,])
+
+    ## [1] 52  9
+
+    table(x$`Nearby Peak`)
+
+    ## 
+    ## FALSE  TRUE 
+    ##    25    27
+
+    dim(x<-x[x$`Nearby Peak`==1,])
+
+    ## [1] 27  9
+
+    #adf<-x[,"Nearby Peak",drop=F]
+    #ann_colors = list( `Nearby Peak` = c("Not Bound"="white", "Bound by Hnf1b"="black") )
+
+
+    #pheatmap(x[,c("WT.log2FoldChange","Hnf1b.log2FoldChange")],cluster_rows=F,cluster_cols=F,labels_row=x[,"MGI Symbol"],
+    #         annotation_row = adf,annotation_colors = ann_colors,annotation_legend = FALSE)
+
+Figure 3D Heatmap
+-----------------
+
+    rownames(x)
+
+    ##  [1] "ENSMUSG00000021335" "ENSMUSG00000031538" "ENSMUSG00000025189"
+    ##  [4] "ENSMUSG00000042599" "ENSMUSG00000022508" "ENSMUSG00000032278"
+    ##  [7] "ENSMUSG00000047638" "ENSMUSG00000025185" "ENSMUSG00000002365"
+    ## [10] "ENSMUSG00000052085" "ENSMUSG00000045636" "ENSMUSG00000057315"
+    ## [13] "ENSMUSG00000061143" "ENSMUSG00000028364" "ENSMUSG00000024998"
+    ## [16] "ENSMUSG00000031502" "ENSMUSG00000029641" "ENSMUSG00000031891"
+    ## [19] "ENSMUSG00000031503" "ENSMUSG00000029334" "ENSMUSG00000007655"
+    ## [22] "ENSMUSG00000026188" "ENSMUSG00000028434" "ENSMUSG00000024164"
+    ## [25] "ENSMUSG00000028167" "ENSMUSG00000013523" "ENSMUSG00000031980"
+
+    f<-as.data.frame(fpkm(cds2))
+
+    remove_X <- function(s) {substr(s,1,nchar(s)-2)}
+
+    colnames(f)<-sapply(strsplit(colnames(f),"_"),function(x) x[1]) %>% gsub("-","_",.) 
+    f<-f[rownames(f) %in% rownames(x),]
+
+    # dplyr to get mean fpkm per condition
+    f<-as.data.frame(f) %>% 
+      cbind(Gene = rownames(f)) %>% 
+      tidyr::gather(Sample,Value,Control_A:Mif_Nacl_C) %>% 
+      dplyr::mutate(Sample=remove_X(Sample)) %>% 
+      dplyr::group_by(Sample,Gene) %>% dplyr::summarise(fpkm=log2(mean(Value))) %>% 
+      tidyr::spread(Sample,fpkm)
+
+    #Add labels from MGI
+    idx<-match(f$Gene,mgi$ensembl_gene_id)
+    f$label <- mgi[idx,]$mgi_symbol
+
+    idx<-match(f$Gene,rownames(res_merged))
+    f$int<-res_merged[idx,]$int
+
+    #f$Effect<-factor(ifelse(f$int < 0,"Failure to Up Regulate","Failure to Down Regulate"),levels=c("Failure to Up Regulate","Failure to Down Regulate"))
+
+    f<-f[with(f,order(int)),]
+
+    #Alternative sort by WT Log2FC
+    #f$log2fc<-f$Control_Nacl-f$Control
+    #f<-f[with(f,order(-log2fc)),]
+
+    f2<-as.matrix(f[,2:5])
+    rownames(f2)<-f$label
+
+    ha <- HeatmapAnnotation(Effect_Size = row_anno_barplot(f$int, baseline = 0, gp = gpar(fill = ifelse(f$int > 0, "red", "green")),axis = TRUE),which='row',width = unit(2, "cm"),name="Interaction\nEffect\nSize")
+
+    h<-Heatmap(f2,clustering_distance_rows = "pearson",cluster_rows=FALSE,
+               cluster_columns = FALSE,name="Mean\nLog2(FPKM)")
+
+    h+ha
+
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-17-1.png)
+
+    #split=f$Effect
+    pdf(paste0("Figure3D_heatmap_",ts,".pdf"),width=6,height=5)
+    h+ha
+    dev.off()
+
+    ## png 
+    ##   2
