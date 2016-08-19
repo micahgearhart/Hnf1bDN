@@ -239,6 +239,9 @@ Control Cells
     res_wt<-as.data.frame(res_wt)
     colnames(res_wt)<-paste0("WT",".",colnames(res_wt))
 
+Hnf1b DN Cells
+--------------
+
     summary(res_hnf1b<-results(cds2, contrast=c("group","MifNacl","MifnoSalt")))
 
     ## 
@@ -260,6 +263,9 @@ Control Cells
 
     res_hnf1b<-as.data.frame(res_hnf1b)
     colnames(res_hnf1b)<-paste0("hnf1b",".",colnames(res_hnf1b))
+
+Merge WT and Hnf1b DN Results
+-----------------------------
 
     res_merged<-cbind(res_wt,res_hnf1b)
     head(res_merged)
@@ -319,7 +325,7 @@ Control Cells
          main="Log2FC in Hnf1b DN vs WT Cells",
          col=ifelse(res_merged$iTerm,"red","black"))
 
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-5-1.png)
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-7-1.png)
 
     #res_merged[identify(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,labels=res_merged$mgi),]
 
@@ -329,7 +335,7 @@ Figure 3C
     (g1<-ggplot(res_merged,aes(x=WT.log2FoldChange,y=hnf1b.log2FoldChange)) + geom_point(aes(colour = int)) + theme_bw() +
       scale_colour_gradient2("Hnf1b:NaCl\nInteraction\nEffect Size") )
 
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-6-1.png)
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-8-1.png)
 
     ggsave(paste0("Figure3C_scatterPlot_",ts,".jpg"),g1,width=7,height=7,dpi=600)
 
@@ -426,172 +432,29 @@ Create Output
     colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj",
         "Interaction","Interaction.Size","Interaction.padj","Nearby Peak")
     temp<-temp[with(temp,order(-Interaction.Size)),]
-    head(temp,40)
+    head(temp)
 
-    ##                       MGI Symbol    baseMean WT.log2FoldChange
-    ## ENSMUSG00000059336       Slc14a1   16.803167     -2.620378e-01
-    ## ENSMUSG00000109517                  8.245258      1.194101e-01
-    ## ENSMUSG00000035916         Ptprq    4.419709     -2.677349e+00
-    ## ENSMUSG00000071047         Ces1a    6.705180      1.551051e-01
-    ## ENSMUSG00000021799          Opn4    6.340113      1.211681e-04
-    ## ENSMUSG00000031101         Sash3   10.311104     -3.830671e-01
-    ## ENSMUSG00000036295         Lrrn3  115.987316      2.091058e+00
-    ## ENSMUSG00000042453          Reln   12.807895      3.729133e-01
-    ## ENSMUSG00000021903       Galnt15   29.528004      2.606467e-01
-    ## ENSMUSG00000053194          Cib4   10.516048     -1.878805e-03
-    ## ENSMUSG00000029372          Ppbp 1387.467255      7.458696e-01
-    ## ENSMUSG00000085573       Gm15418    3.611072     -4.389129e-01
-    ## ENSMUSG00000029379         Cxcl3   13.850413      2.822603e-01
-    ## ENSMUSG00000103878        Gm8197    3.814611      2.901513e-01
-    ## ENSMUSG00000037161         Mgarp    7.385198     -1.015909e-01
-    ## ENSMUSG00000021680         Crhbp    6.860589      2.935090e-01
-    ## ENSMUSG00000007097        Atp1a2    6.250923     -1.051795e+00
-    ## ENSMUSG00000063087       Gm10125   35.109493      1.635405e+00
-    ## ENSMUSG00000033208         S100b   78.285407      9.160978e-01
-    ## ENSMUSG00000086006       Gm13293    8.064271      2.753235e-05
-    ## ENSMUSG00000042041 2010003K11Rik    4.598403      1.922770e-03
-    ## ENSMUSG00000031253         Srpx2    5.391467      1.553357e-01
-    ## ENSMUSG00000015405          Ace2   12.138600     -3.529829e+00
-    ## ENSMUSG00000000197         Nalcn   14.421310      3.547411e-01
-    ## ENSMUSG00000097440        Gm6277   11.953341      4.969631e-01
-    ## ENSMUSG00000012187        Mogat1    3.684888     -1.551680e-01
-    ## ENSMUSG00000026247         Ecel1   25.208761     -2.428081e-03
-    ## ENSMUSG00000024176          Sox8    3.333131     -6.304964e-01
-    ## ENSMUSG00000085639       Gm15410    4.818540     -3.258899e-01
-    ## ENSMUSG00000047528      Als2cr12    3.649819     -9.819100e-01
-    ## ENSMUSG00000034959 5031414D18Rik    6.567312     -1.465695e+00
-    ## ENSMUSG00000056699        Gm5533    4.572428     -2.626530e-01
-    ## ENSMUSG00000047497      Adamts12    8.485731      5.427373e-01
-    ## ENSMUSG00000104616        Gm6069    6.501722      2.293508e-03
-    ## ENSMUSG00000029373           Pf4    4.640568      3.236427e-01
-    ## ENSMUSG00000028463          Car9    4.145038     -6.430976e-01
-    ## ENSMUSG00000106933       Gm43621   11.061293      2.837953e-01
-    ## ENSMUSG00000044824       Olfr545    3.327233     -1.298324e+00
-    ## ENSMUSG00000028836       Slc30a2    3.823711      1.561093e-01
-    ## ENSMUSG00000028940          Hes2    3.031093      6.869440e-01
-    ##                         WT.padj Hnf1b.log2FoldChange   Hnf1b.padj
-    ## ENSMUSG00000059336 7.062472e-01            4.7702487 3.959827e-28
-    ## ENSMUSG00000109517 8.735931e-01            3.6314423 2.504262e-15
-    ## ENSMUSG00000035916 3.435070e-08            0.1427210 8.493364e-01
-    ## ENSMUSG00000071047 8.318289e-01            3.4791114 1.953425e-13
-    ## ENSMUSG00000021799 1.000000e+00            3.1892909 1.835205e-11
-    ## ENSMUSG00000031101 5.578399e-01            2.2827915 5.605729e-08
-    ## ENSMUSG00000036295 7.259907e-08            6.7542913 1.194047e-86
-    ## ENSMUSG00000042453 5.574714e-01            3.7972774 2.204208e-18
-    ## ENSMUSG00000021903 7.073114e-01            5.2020090 1.872854e-38
-    ## ENSMUSG00000053194 1.000000e+00            3.5077326 3.021253e-15
-    ## ENSMUSG00000029372 4.943073e-11            5.2935538 0.000000e+00
-    ## ENSMUSG00000085573 4.901952e-01            1.6428720 1.474367e-03
-    ## ENSMUSG00000029379 6.821777e-01            4.3771304 2.770070e-23
-    ## ENSMUSG00000103878 6.567680e-01            2.6682806 3.763221e-08
-    ## ENSMUSG00000037161 8.893109e-01            2.8054035 1.089494e-09
-    ## ENSMUSG00000021680 6.649598e-01            3.3946417 9.164904e-13
-    ## ENSMUSG00000007097 5.312250e-02            0.1045504 8.737511e-01
-    ## ENSMUSG00000063087 1.786961e-04            5.1461518 2.426304e-41
-    ## ENSMUSG00000033208 4.266787e-02            5.3029771 7.662229e-66
-    ## ENSMUSG00000086006 1.000000e+00            3.0404853 5.878734e-11
-    ## ENSMUSG00000042041 1.000000e+00            2.4289552 7.619142e-07
-    ## ENSMUSG00000031253 8.307481e-01            2.9827645 5.780456e-10
-    ## ENSMUSG00000015405 1.644246e-16           -0.4713419 4.358501e-01
-    ## ENSMUSG00000000197 5.522102e-01            3.3108123 4.447257e-15
-    ## ENSMUSG00000097440 4.066237e-01            3.4529782 2.288073e-15
-    ## ENSMUSG00000012187 8.292273e-01            1.9265833 1.399698e-04
-    ## ENSMUSG00000026247 1.000000e+00            3.5362202 9.367511e-25
-    ## ENSMUSG00000024176 2.942476e-01            1.0139358 6.810160e-02
-    ## ENSMUSG00000085639 6.198984e-01            1.6704511 9.559523e-04
-    ## ENSMUSG00000047528 7.767744e-02            0.8237481 1.527940e-01
-    ## ENSMUSG00000034959 3.130074e-03            0.8457951 1.304685e-01
-    ## ENSMUSG00000056699 7.045207e-01            1.5532853 2.479916e-03
-    ## ENSMUSG00000047497 3.716054e-01            2.8473086 1.417873e-09
-    ## ENSMUSG00000104616 1.000000e+00            2.4409620 2.523526e-07
-    ## ENSMUSG00000029373 6.319876e-01            2.4161649 6.855209e-07
-    ## ENSMUSG00000028463 2.833524e-01            1.1159512 3.612684e-02
-    ## ENSMUSG00000106933 6.714964e-01            3.2361035 4.813502e-14
-    ## ENSMUSG00000044824 1.465091e-02            0.3485105 6.077636e-01
-    ## ENSMUSG00000028836 8.268651e-01            2.4947289 4.021474e-07
-    ## ENSMUSG00000028940 2.370909e-01            1.8909283 1.581495e-04
-    ##                    Interaction Interaction.Size Interaction.padj
-    ## ENSMUSG00000059336           1         9.041953     7.353637e-03
-    ## ENSMUSG00000109517           0         6.036978     4.791729e-01
-    ## ENSMUSG00000035916           0         5.840708     8.319712e-01
-    ## ENSMUSG00000071047           0         5.274840     1.000000e+00
-    ## ENSMUSG00000021799           0         5.229401     1.000000e+00
-    ## ENSMUSG00000031101           0         5.103819     1.000000e+00
-    ## ENSMUSG00000036295           1         5.017252     1.727960e-02
-    ## ENSMUSG00000042453           0         4.711861     4.791729e-01
-    ## ENSMUSG00000021903           0         4.638707     1.000000e+00
-    ## ENSMUSG00000053194           0         4.620494     1.000000e+00
-    ## ENSMUSG00000029372           1         4.606230    2.390118e-110
-    ## ENSMUSG00000085573           0         4.601082     1.000000e+00
-    ## ENSMUSG00000029379           0         4.533045     1.000000e+00
-    ## ENSMUSG00000103878           0         4.512523     1.000000e+00
-    ## ENSMUSG00000037161           0         4.440210     7.213244e-01
-    ## ENSMUSG00000021680           0         4.388765     1.000000e+00
-    ## ENSMUSG00000007097           0         4.305830     1.000000e+00
-    ## ENSMUSG00000063087           0         4.265492     5.420796e-01
-    ## ENSMUSG00000033208           1         4.258763     2.833067e-03
-    ## ENSMUSG00000086006           0         4.208972     1.000000e+00
-    ## ENSMUSG00000042041           0         4.051334     1.000000e+00
-    ## ENSMUSG00000031253           0         4.036300     1.000000e+00
-    ## ENSMUSG00000015405           0         3.993440     9.322745e-01
-    ## ENSMUSG00000000197           0         3.984586     2.625266e-01
-    ## ENSMUSG00000097440           0         3.964811     1.000000e+00
-    ## ENSMUSG00000012187           0         3.945957     1.000000e+00
-    ## ENSMUSG00000026247           0         3.853552     1.000000e+00
-    ## ENSMUSG00000024176           0         3.833952     1.000000e+00
-    ## ENSMUSG00000085639           0         3.802766     1.000000e+00
-    ## ENSMUSG00000047528           0         3.802482     1.000000e+00
-    ## ENSMUSG00000034959           0         3.776568     1.000000e+00
-    ## ENSMUSG00000056699           0         3.755789     1.000000e+00
-    ## ENSMUSG00000047497           0         3.667204     1.000000e+00
-    ## ENSMUSG00000104616           0         3.661299     1.000000e+00
-    ## ENSMUSG00000029373           0         3.650451     1.000000e+00
-    ## ENSMUSG00000028463           0         3.630945     1.000000e+00
-    ## ENSMUSG00000106933           0         3.613879     1.000000e+00
-    ## ENSMUSG00000044824           0         3.563140     1.000000e+00
-    ## ENSMUSG00000028836           0         3.517352     1.000000e+00
-    ## ENSMUSG00000028940           0         3.424372     1.000000e+00
-    ##                    Nearby Peak
-    ## ENSMUSG00000059336       FALSE
-    ## ENSMUSG00000109517       FALSE
-    ## ENSMUSG00000035916       FALSE
-    ## ENSMUSG00000071047       FALSE
-    ## ENSMUSG00000021799       FALSE
-    ## ENSMUSG00000031101       FALSE
-    ## ENSMUSG00000036295       FALSE
-    ## ENSMUSG00000042453        TRUE
-    ## ENSMUSG00000021903       FALSE
-    ## ENSMUSG00000053194       FALSE
-    ## ENSMUSG00000029372       FALSE
-    ## ENSMUSG00000085573        TRUE
-    ## ENSMUSG00000029379       FALSE
-    ## ENSMUSG00000103878       FALSE
-    ## ENSMUSG00000037161       FALSE
-    ## ENSMUSG00000021680       FALSE
-    ## ENSMUSG00000007097       FALSE
-    ## ENSMUSG00000063087        TRUE
-    ## ENSMUSG00000033208       FALSE
-    ## ENSMUSG00000086006       FALSE
-    ## ENSMUSG00000042041       FALSE
-    ## ENSMUSG00000031253       FALSE
-    ## ENSMUSG00000015405       FALSE
-    ## ENSMUSG00000000197       FALSE
-    ## ENSMUSG00000097440        TRUE
-    ## ENSMUSG00000012187       FALSE
-    ## ENSMUSG00000026247       FALSE
-    ## ENSMUSG00000024176       FALSE
-    ## ENSMUSG00000085639       FALSE
-    ## ENSMUSG00000047528        TRUE
-    ## ENSMUSG00000034959       FALSE
-    ## ENSMUSG00000056699        TRUE
-    ## ENSMUSG00000047497        TRUE
-    ## ENSMUSG00000104616       FALSE
-    ## ENSMUSG00000029373       FALSE
-    ## ENSMUSG00000028463       FALSE
-    ## ENSMUSG00000106933       FALSE
-    ## ENSMUSG00000044824       FALSE
-    ## ENSMUSG00000028836       FALSE
-    ## ENSMUSG00000028940       FALSE
+    ##                    MGI Symbol  baseMean WT.log2FoldChange      WT.padj
+    ## ENSMUSG00000059336    Slc14a1 16.803167     -0.2620378189 7.062472e-01
+    ## ENSMUSG00000109517             8.245258      0.1194101452 8.735931e-01
+    ## ENSMUSG00000035916      Ptprq  4.419709     -2.6773488771 3.435070e-08
+    ## ENSMUSG00000071047      Ces1a  6.705180      0.1551051264 8.318289e-01
+    ## ENSMUSG00000021799       Opn4  6.340113      0.0001211681 1.000000e+00
+    ## ENSMUSG00000031101      Sash3 10.311104     -0.3830671317 5.578399e-01
+    ##                    Hnf1b.log2FoldChange   Hnf1b.padj Interaction
+    ## ENSMUSG00000059336             4.770249 3.959827e-28           1
+    ## ENSMUSG00000109517             3.631442 2.504262e-15           0
+    ## ENSMUSG00000035916             0.142721 8.493364e-01           0
+    ## ENSMUSG00000071047             3.479111 1.953425e-13           0
+    ## ENSMUSG00000021799             3.189291 1.835205e-11           0
+    ## ENSMUSG00000031101             2.282791 5.605729e-08           0
+    ##                    Interaction.Size Interaction.padj Nearby Peak
+    ## ENSMUSG00000059336         9.041953      0.007353637       FALSE
+    ## ENSMUSG00000109517         6.036978      0.479172868       FALSE
+    ## ENSMUSG00000035916         5.840708      0.831971153       FALSE
+    ## ENSMUSG00000071047         5.274840      1.000000000       FALSE
+    ## ENSMUSG00000021799         5.229401      1.000000000       FALSE
+    ## ENSMUSG00000031101         5.103819      1.000000000       FALSE
 
     write.csv(temp,file=paste0("hnf1b_nacl_log2FCs_wChIPdata_",ts,".csv"),quote=F)
 
@@ -603,8 +466,8 @@ Upload Output to googlesheets
     temp_gs<-googlesheets::gs_upload(paste0("hnf1b_nacl_log2FCs_wChIPdata_",ts,".csv")
     #googlesheets::gs_browse(temp_gs)
 
-GO Analysis
------------
+GO Analysis of NaCl dependent Genes in WT Cells
+-----------------------------------------------
 
     expressed_genes<-rownames(res_wt[res_wt$WT.baseMean > 1 & !is.na(res_wt$WT.log2FoldChange) & !is.na(res_wt$WT.padj),])
     gocat<-AnnotationDbi::select(Mus.musculus,keys=expressed_genes,keytype="ENSEMBL",columns="GOID")
@@ -679,7 +542,7 @@ GO Analysis
 
     ## Warning in pcls(G): initial point very close to some inequality constraints
 
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-11-1.png)
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-13-1.png)
 
     GO.wall<-goseq(pwf,gene2cat=gocat.list)
 
@@ -702,17 +565,7 @@ GO Analysis
       coord_flip() + xlab("") +
       theme_bw() 
 
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-11-2.png)
-
-    #temp<-listGO("GO:0006814")
-    #head(temp)
-    #res_merged$sodium_transport<-rownames(res_merged) %in% temp$ENSEMBL
-    #res_merged[res_merged$sodium_transport & res_merged$`Effect Size` > 1,]$mgi
-
-    #temp<-listGO("GO:0006811")
-    #head(temp)
-    #res_merged$ion_transport<-rownames(res_merged) %in% temp$ENSEMBL
-    #res_merged[res_merged$ion_transport & res_merged$`Effect Size` > 1,]$mgi
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-13-2.png)
 
 Compare Wt vs Hnf1b DN expression profiles in the absence of Salt
 -----------------------------------------------------------------
@@ -772,7 +625,7 @@ Compare Wt vs Hnf1b DN expression profiles in the absence of Salt
     temp<-res_genotype[,c("mgi","Wt_vs_DN.baseMean","Wt_vs_DN.log2FoldChange","Wt_vs_DN.padj","Nearby Peak")]
     gg_plotCounts("Pde4c")
 
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-12-1.png)
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-14-1.png)
 
     write.csv(temp,file=paste0("Wt_vs_DN_log2FCs_wChIPdata_",ts,".csv"),quote=F)
 
@@ -784,33 +637,11 @@ Output to Google Sheets
     temp_gs<-googlesheets::gs_upload(paste0("Wt_vs_DN_log2FCs_wChIPdata_",ts,".csv"))
     #googlesheets::gs_browse(temp_gs)
 
-Heatmap of Genes that are direct targets and have an abs(Effect size) &gt; 1
-============================================================================
-
-    #head(res_merged)
-    #
-    #nrow(temp<-res_merged[abs(res_merged$WT.log2FoldChange) > 0.5 & abs(res_merged$hnf1b.log2FoldChange) < 0.1,])
-    #nrow(temp<-res_merged[abs(res_merged$WT.log2FoldChange) > 0.5,])
-    #nrow(temp<-res_merged)
-    #plot(temp$WT.log2FoldChange,temp$hnf1b.log2FoldChange,cex=0.5,pch=16,col=ifelse(temp$`Nearby Peak`,"red","black"))
-    #identify(temp$WT.log2FoldChange,temp$hnf1b.log2FoldChange,labels=temp$mgi)
-
-    #ftu<-read_excel("failed_to_upregulate.xlsx")
-    #ftu<-ftu[,1:10]
-    #ftd<-read_excel("failed_to_downregulate.xlsx")
-    #ftd<-ftd[,1:10]
-    #ft<-as.data.frame(rbind(ftu,ftd))
-    #plot(ft$WT.log2FoldChange,ft$Hnf1b.log2FoldChange,cex=0.5,pch=16,col=ifelse(ft$`Nearby Peak`,"red","black"))
-    #identify(ft$WT.log2FoldChange,ft$Hnf1b.log2FoldChange,labels=ft$'MGI Symbol')
-
-Remade res\_merged to get the signs correct
--------------------------------------------
+Figure 3D Heatmap
+-----------------
 
     temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj","Nearby Peak","int","int.padj")]
     colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj","Nearby Peak","Interaction","Interaction.Padj")
-    #Keep Karam's Peaks
-    #temp<-temp[ft[,1],]
-    #temp$`Nearby Peak`<-factor(ifelse(temp$`Nearby Peak`,"Bound by Hnf1b","Not Bound"))
 
     nrow(temp<-temp[abs(temp$Interaction) > 1 & temp$Interaction.Padj <0.05,])
 
@@ -838,16 +669,6 @@ Remade res\_merged to get the signs correct
 
     ## [1] 27  9
 
-    #adf<-x[,"Nearby Peak",drop=F]
-    #ann_colors = list( `Nearby Peak` = c("Not Bound"="white", "Bound by Hnf1b"="black") )
-
-
-    #pheatmap(x[,c("WT.log2FoldChange","Hnf1b.log2FoldChange")],cluster_rows=F,cluster_cols=F,labels_row=x[,"MGI Symbol"],
-    #         annotation_row = adf,annotation_colors = ann_colors,annotation_legend = FALSE)
-
-Figure 3D Heatmap
------------------
-
     rownames(x)
 
     ##  [1] "ENSMUSG00000021335" "ENSMUSG00000031538" "ENSMUSG00000025189"
@@ -865,6 +686,17 @@ Figure 3D Heatmap
     remove_X <- function(s) {substr(s,1,nchar(s)-2)}
 
     colnames(f)<-sapply(strsplit(colnames(f),"_"),function(x) x[1]) %>% gsub("-","_",.) 
+
+    #Export a Copy of FPKM table for Supplement
+    temp<-f
+    colnames(temp)<-gsub("Mif","Hnf1bDN",colnames(temp))
+    idx<-match(rownames(temp),mgi$ensembl_gene_id)
+    temp$'MGI Symbol' <- mgi[idx,]$mgi_symbol
+    temp<-temp[,c(13,1:12)]
+    write.csv(temp,file=paste0("FPKM_data_",ts,".csv"),quote=F)
+    rm(temp)
+
+    #subset for heatmap
     f<-f[rownames(f) %in% rownames(x),]
 
     # dplyr to get mean fpkm per condition

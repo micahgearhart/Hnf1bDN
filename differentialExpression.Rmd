@@ -136,12 +136,19 @@ summary(res_wt<-results(cds2, contrast=c("group","ControlNacl","ControlnoSalt"),
 table(ifelse(res_wt$log2FoldChange>1, "up", ifelse(res_wt$log2FoldChange< -1, "down", "no_change")))
 res_wt<-as.data.frame(res_wt)
 colnames(res_wt)<-paste0("WT",".",colnames(res_wt))
+```
 
+## Hnf1b DN Cells
+```{r}
 summary(res_hnf1b<-results(cds2, contrast=c("group","MifNacl","MifnoSalt")))
 table(ifelse(res_hnf1b$log2FoldChange>1, "up", ifelse(res_hnf1b$log2FoldChange< -1, "down", "no_change")))
 res_hnf1b<-as.data.frame(res_hnf1b)
 colnames(res_hnf1b)<-paste0("hnf1b",".",colnames(res_hnf1b))
 
+```
+
+## Merge WT and Hnf1b DN Results
+```{r}
 res_merged<-cbind(res_wt,res_hnf1b)
 head(res_merged)
 #res_merged<-res_merged[res_merged$WT.padj < 0.05 & res_merged$WT.baseMean > 100,]
@@ -226,7 +233,7 @@ temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log
 colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj",
     "Interaction","Interaction.Size","Interaction.padj","Nearby Peak")
 temp<-temp[with(temp,order(-Interaction.Size)),]
-head(temp,40)
+head(temp)
 write.csv(temp,file=paste0("hnf1b_nacl_log2FCs_wChIPdata_",ts,".csv"),quote=F)
 ```
 
@@ -238,7 +245,7 @@ temp_gs<-googlesheets::gs_upload(paste0("hnf1b_nacl_log2FCs_wChIPdata_",ts,".csv
 #googlesheets::gs_browse(temp_gs)
 ```
 
-## GO Analysis
+## GO Analysis of NaCl dependent Genes in WT Cells
 ```{r}
 expressed_genes<-rownames(res_wt[res_wt$WT.baseMean > 1 & !is.na(res_wt$WT.log2FoldChange) & !is.na(res_wt$WT.padj),])
 gocat<-AnnotationDbi::select(Mus.musculus,keys=expressed_genes,keytype="ENSEMBL",columns="GOID")
@@ -280,16 +287,6 @@ ggplot(aes(x=term,y=-log10(over_represented_pvalue))) +
   theme_bw() 
 
 
-#temp<-listGO("GO:0006814")
-#head(temp)
-#res_merged$sodium_transport<-rownames(res_merged) %in% temp$ENSEMBL
-#res_merged[res_merged$sodium_transport & res_merged$`Effect Size` > 1,]$mgi
-
-#temp<-listGO("GO:0006811")
-#head(temp)
-#res_merged$ion_transport<-rownames(res_merged) %in% temp$ENSEMBL
-#res_merged[res_merged$ion_transport & res_merged$`Effect Size` > 1,]$mgi
-
 ```
 
 
@@ -319,35 +316,10 @@ temp_gs<-googlesheets::gs_upload(paste0("Wt_vs_DN_log2FCs_wChIPdata_",ts,".csv")
 #googlesheets::gs_browse(temp_gs)
 ```
 
-#Heatmap of Genes that are direct targets and have an abs(Effect size) > 1  
-  
-```{r}
-#head(res_merged)
-#
-#nrow(temp<-res_merged[abs(res_merged$WT.log2FoldChange) > 0.5 & abs(res_merged$hnf1b.log2FoldChange) < 0.1,])
-#nrow(temp<-res_merged[abs(res_merged$WT.log2FoldChange) > 0.5,])
-#nrow(temp<-res_merged)
-#plot(temp$WT.log2FoldChange,temp$hnf1b.log2FoldChange,cex=0.5,pch=16,col=ifelse(temp$`Nearby Peak`,"red","black"))
-#identify(temp$WT.log2FoldChange,temp$hnf1b.log2FoldChange,labels=temp$mgi)
-```
-
-```{r}
-#ftu<-read_excel("failed_to_upregulate.xlsx")
-#ftu<-ftu[,1:10]
-#ftd<-read_excel("failed_to_downregulate.xlsx")
-#ftd<-ftd[,1:10]
-#ft<-as.data.frame(rbind(ftu,ftd))
-#plot(ft$WT.log2FoldChange,ft$Hnf1b.log2FoldChange,cex=0.5,pch=16,col=ifelse(ft$`Nearby Peak`,"red","black"))
-#identify(ft$WT.log2FoldChange,ft$Hnf1b.log2FoldChange,labels=ft$'MGI Symbol')
-```
-
-## Remade res_merged to get the signs correct
+## Figure 3D Heatmap
 ```{r}
 temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj","Nearby Peak","int","int.padj")]
 colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj","Nearby Peak","Interaction","Interaction.Padj")
-#Keep Karam's Peaks
-#temp<-temp[ft[,1],]
-#temp$`Nearby Peak`<-factor(ifelse(temp$`Nearby Peak`,"Bound by Hnf1b","Not Bound"))
 
 nrow(temp<-temp[abs(temp$Interaction) > 1 & temp$Interaction.Padj <0.05,])
 
@@ -356,16 +328,8 @@ hist(x$WT.log2FoldChange,breaks = 100)
 dim(x<-x[abs(x$WT.log2FoldChange) > 1.0 & x$WT.padj < 0.05,])
 table(x$`Nearby Peak`)
 dim(x<-x[x$`Nearby Peak`==1,])
-
-#adf<-x[,"Nearby Peak",drop=F]
-#ann_colors = list( `Nearby Peak` = c("Not Bound"="white", "Bound by Hnf1b"="black") )
-
-
-#pheatmap(x[,c("WT.log2FoldChange","Hnf1b.log2FoldChange")],cluster_rows=F,cluster_cols=F,labels_row=x[,"MGI Symbol"],
-#         annotation_row = adf,annotation_colors = ann_colors,annotation_legend = FALSE)
 ```
 
-## Figure 3D Heatmap
 ```{r}
 rownames(x)
 f<-as.data.frame(fpkm(cds2))
@@ -373,6 +337,17 @@ f<-as.data.frame(fpkm(cds2))
 remove_X <- function(s) {substr(s,1,nchar(s)-2)}
 
 colnames(f)<-sapply(strsplit(colnames(f),"_"),function(x) x[1]) %>% gsub("-","_",.) 
+
+#Export a Copy of FPKM table for Supplement
+temp<-f
+colnames(temp)<-gsub("Mif","Hnf1bDN",colnames(temp))
+idx<-match(rownames(temp),mgi$ensembl_gene_id)
+temp$'MGI Symbol' <- mgi[idx,]$mgi_symbol
+temp<-temp[,c(13,1:12)]
+write.csv(temp,file=paste0("FPKM_data_",ts,".csv"),quote=F)
+rm(temp)
+
+#subset for heatmap
 f<-f[rownames(f) %in% rownames(x),]
 
 # dplyr to get mean fpkm per condition
