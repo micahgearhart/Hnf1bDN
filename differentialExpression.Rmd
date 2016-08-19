@@ -157,18 +157,19 @@ dim(res_merged)
 idx<-match(rownames(res_merged),mgi$ensembl_gene_id)
 res_merged$mgi<-mgi[idx,"mgi_symbol"]
 
-#Highlight genes with strong interaction term
-res_merged$iTerm<-rownames(res_merged) %in% interactive_genes
+#Highlight genes with WTlogFC > 1 & strong interaction term
 summary(idx<-match(rownames(res_merged),rownames(resDF)))
 res_merged$int<-resDF[idx,"log2FoldChange"]
 res_merged[is.na(res_merged$int),]<-0
 res_merged$int.padj<-resDF[idx,"padj"]
 
-plot(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,pch=16,cex=0.5,
-     xlab="WT Salt Induced Log2FC",
-     ylab="Hnf1b Salt Induced Log2FC",
-     main="Log2FC in Hnf1b DN vs WT Cells",
-     col=ifelse(res_merged$iTerm,"red","black"))
+res_merged$iTerm<-abs(res_merged$int) > 1 & res_merged$int.padj < 0.05 & abs(res_merged$WT.log2FoldChange) > 1 & res_merged$WT.padj < 0.05
+
+#plot(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,pch=16,cex=0.5,
+#     xlab="WT Salt Induced Log2FC",
+#     ylab="Hnf1b Salt Induced Log2FC",
+#     main="Log2FC in Hnf1b DN vs WT Cells",
+#     col=ifelse(res_merged$iTerm,"red","black"))
 
 #res_merged[identify(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,labels=res_merged$mgi),]
 ```
@@ -318,20 +319,19 @@ temp_gs<-googlesheets::gs_upload(paste0("Wt_vs_DN_log2FCs_wChIPdata_",ts,".csv")
 
 ## Figure 3D Heatmap
 ```{r}
-temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj","Nearby Peak","int","int.padj")]
-colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj","Nearby Peak","Interaction","Interaction.Padj")
+x<-res_merged[res_merged$iTerm & res_merged$`Nearby Peak`,
+                 c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj","Nearby Peak","int","int.padj")]
+colnames(x)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj","Nearby Peak","Interaction","Interaction.Padj")
 
-nrow(temp<-temp[abs(temp$Interaction) > 1 & temp$Interaction.Padj <0.05,])
+#dim(x<-temp[with(temp,order(-WT.log2FoldChange)),])
+#nrow(temp<-temp[abs(temp$Interaction) > 1 & temp$Interaction.Padj <0.05,])
+#hist(x$WT.log2FoldChange,breaks = 100)
+#dim(x<-x[abs(x$WT.log2FoldChange) > 1.0 & x$WT.padj < 0.05,])
+#table(x$`Nearby Peak`)
+#dim(x<-x[x$`Nearby Peak`==1,])
+#rownames(x)
 
-dim(x<-temp[with(temp,order(-WT.log2FoldChange)),])
-hist(x$WT.log2FoldChange,breaks = 100)
-dim(x<-x[abs(x$WT.log2FoldChange) > 1.0 & x$WT.padj < 0.05,])
-table(x$`Nearby Peak`)
-dim(x<-x[x$`Nearby Peak`==1,])
-```
-
-```{r}
-rownames(x)
+#Get FPKM values for Genes in x
 f<-as.data.frame(fpkm(cds2))
 
 remove_X <- function(s) {substr(s,1,nchar(s)-2)}

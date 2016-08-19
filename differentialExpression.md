@@ -308,8 +308,7 @@ Merge WT and Hnf1b DN Results
     idx<-match(rownames(res_merged),mgi$ensembl_gene_id)
     res_merged$mgi<-mgi[idx,"mgi_symbol"]
 
-    #Highlight genes with strong interaction term
-    res_merged$iTerm<-rownames(res_merged) %in% interactive_genes
+    #Highlight genes with WTlogFC > 1 & strong interaction term
     summary(idx<-match(rownames(res_merged),rownames(resDF)))
 
     ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
@@ -319,13 +318,13 @@ Merge WT and Hnf1b DN Results
     res_merged[is.na(res_merged$int),]<-0
     res_merged$int.padj<-resDF[idx,"padj"]
 
-    plot(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,pch=16,cex=0.5,
-         xlab="WT Salt Induced Log2FC",
-         ylab="Hnf1b Salt Induced Log2FC",
-         main="Log2FC in Hnf1b DN vs WT Cells",
-         col=ifelse(res_merged$iTerm,"red","black"))
+    res_merged$iTerm<-abs(res_merged$int) > 1 & res_merged$int.padj < 0.05 & abs(res_merged$WT.log2FoldChange) > 1 & res_merged$WT.padj < 0.05
 
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-7-1.png)
+    #plot(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,pch=16,cex=0.5,
+    #     xlab="WT Salt Induced Log2FC",
+    #     ylab="Hnf1b Salt Induced Log2FC",
+    #     main="Log2FC in Hnf1b DN vs WT Cells",
+    #     col=ifelse(res_merged$iTerm,"red","black"))
 
     #res_merged[identify(res_merged$WT.log2FoldChange,res_merged$hnf1b.log2FoldChange,labels=res_merged$mgi),]
 
@@ -424,8 +423,8 @@ Create Output
     ##  [4] "WT.stat"              "WT.pvalue"            "WT.padj"             
     ##  [7] "hnf1b.baseMean"       "hnf1b.log2FoldChange" "hnf1b.lfcSE"         
     ## [10] "hnf1b.stat"           "hnf1b.pvalue"         "hnf1b.padj"          
-    ## [13] "mgi"                  "iTerm"                "int"                 
-    ## [16] "int.padj"             "Nearby Peak"
+    ## [13] "mgi"                  "int"                  "int.padj"            
+    ## [16] "iTerm"                "Nearby Peak"
 
     temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj",
                         "iTerm","int","int.padj","Nearby Peak")]
@@ -442,12 +441,12 @@ Create Output
     ## ENSMUSG00000021799       Opn4  6.340113      0.0001211681 1.000000e+00
     ## ENSMUSG00000031101      Sash3 10.311104     -0.3830671317 5.578399e-01
     ##                    Hnf1b.log2FoldChange   Hnf1b.padj Interaction
-    ## ENSMUSG00000059336             4.770249 3.959827e-28           1
-    ## ENSMUSG00000109517             3.631442 2.504262e-15           0
-    ## ENSMUSG00000035916             0.142721 8.493364e-01           0
-    ## ENSMUSG00000071047             3.479111 1.953425e-13           0
-    ## ENSMUSG00000021799             3.189291 1.835205e-11           0
-    ## ENSMUSG00000031101             2.282791 5.605729e-08           0
+    ## ENSMUSG00000059336             4.770249 3.959827e-28       FALSE
+    ## ENSMUSG00000109517             3.631442 2.504262e-15       FALSE
+    ## ENSMUSG00000035916             0.142721 8.493364e-01       FALSE
+    ## ENSMUSG00000071047             3.479111 1.953425e-13       FALSE
+    ## ENSMUSG00000021799             3.189291 1.835205e-11       FALSE
+    ## ENSMUSG00000031101             2.282791 5.605729e-08       FALSE
     ##                    Interaction.Size Interaction.padj Nearby Peak
     ## ENSMUSG00000059336         9.041953      0.007353637       FALSE
     ## ENSMUSG00000109517         6.036978      0.479172868       FALSE
@@ -640,47 +639,19 @@ Output to Google Sheets
 Figure 3D Heatmap
 -----------------
 
-    temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj","Nearby Peak","int","int.padj")]
-    colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj","Nearby Peak","Interaction","Interaction.Padj")
+    x<-res_merged[res_merged$iTerm & res_merged$`Nearby Peak`,
+                     c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log2FoldChange","hnf1b.padj","Nearby Peak","int","int.padj")]
+    colnames(x)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj","Nearby Peak","Interaction","Interaction.Padj")
 
-    nrow(temp<-temp[abs(temp$Interaction) > 1 & temp$Interaction.Padj <0.05,])
+    #dim(x<-temp[with(temp,order(-WT.log2FoldChange)),])
+    #nrow(temp<-temp[abs(temp$Interaction) > 1 & temp$Interaction.Padj <0.05,])
+    #hist(x$WT.log2FoldChange,breaks = 100)
+    #dim(x<-x[abs(x$WT.log2FoldChange) > 1.0 & x$WT.padj < 0.05,])
+    #table(x$`Nearby Peak`)
+    #dim(x<-x[x$`Nearby Peak`==1,])
+    #rownames(x)
 
-    ## [1] 88
-
-    dim(x<-temp[with(temp,order(-WT.log2FoldChange)),])
-
-    ## [1] 88  9
-
-    hist(x$WT.log2FoldChange,breaks = 100)
-
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-16-1.png)
-
-    dim(x<-x[abs(x$WT.log2FoldChange) > 1.0 & x$WT.padj < 0.05,])
-
-    ## [1] 52  9
-
-    table(x$`Nearby Peak`)
-
-    ## 
-    ## FALSE  TRUE 
-    ##    25    27
-
-    dim(x<-x[x$`Nearby Peak`==1,])
-
-    ## [1] 27  9
-
-    rownames(x)
-
-    ##  [1] "ENSMUSG00000021335" "ENSMUSG00000031538" "ENSMUSG00000025189"
-    ##  [4] "ENSMUSG00000042599" "ENSMUSG00000022508" "ENSMUSG00000032278"
-    ##  [7] "ENSMUSG00000047638" "ENSMUSG00000025185" "ENSMUSG00000002365"
-    ## [10] "ENSMUSG00000052085" "ENSMUSG00000045636" "ENSMUSG00000057315"
-    ## [13] "ENSMUSG00000061143" "ENSMUSG00000028364" "ENSMUSG00000024998"
-    ## [16] "ENSMUSG00000031502" "ENSMUSG00000029641" "ENSMUSG00000031891"
-    ## [19] "ENSMUSG00000031503" "ENSMUSG00000029334" "ENSMUSG00000007655"
-    ## [22] "ENSMUSG00000026188" "ENSMUSG00000028434" "ENSMUSG00000024164"
-    ## [25] "ENSMUSG00000028167" "ENSMUSG00000013523" "ENSMUSG00000031980"
-
+    #Get FPKM values for Genes in x
     f<-as.data.frame(fpkm(cds2))
 
     remove_X <- function(s) {substr(s,1,nchar(s)-2)}
@@ -732,7 +703,7 @@ Figure 3D Heatmap
 
     h+ha
 
-![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-17-1.png)
+![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-16-1.png)
 
     #split=f$Effect
     pdf(paste0("Figure3D_heatmap_",ts,".pdf"),width=6,height=5)
