@@ -14,7 +14,7 @@ Load Libraries
     library(ComplexHeatmap)
     library(gridExtra)
 
-    ts<-format(Sys.time(), "%a_%b_%d_%Y_%H%M")
+    (ts<-format(Sys.time(), "%a_%b_%d_%Y_%H%M"))
     cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 Get annotation data from biomaRt
@@ -311,7 +311,6 @@ Merge WT and Hnf1b DN Results
     ##       1    5073   10150   10150   15220   20290   12337
 
     res_merged$int<-resDF[idx,"log2FoldChange"]
-    res_merged[is.na(res_merged$int),"int"]<-0
     res_merged$int.padj<-resDF[idx,"padj"]
 
     res_merged$iTerm<-abs(res_merged$int) > 1 & res_merged$int.padj < 0.05 & abs(res_merged$WT.log2FoldChange) > 1 & res_merged$WT.padj < 0.05
@@ -327,7 +326,9 @@ Merge WT and Hnf1b DN Results
 Figure 3C
 =========
 
-    (g1<-ggplot(res_merged,aes(x=WT.log2FoldChange,y=hnf1b.log2FoldChange)) + geom_point(aes(colour = int)) + theme_bw() +
+    #subset res_merged to leave out genes interaction terms with missing values.
+
+    (g1<-ggplot(subset(res_merged,!is.na(int)),aes(x=WT.log2FoldChange,y=hnf1b.log2FoldChange)) + geom_point(aes(colour = int)) + theme_bw() +
       scale_colour_gradient2("Hnf1b:NaCl\nInteraction\nEffect Size") )
 
 ![](differentialExpression_files/figure-markdown_strict/unnamed-chunk-8-1.png)
