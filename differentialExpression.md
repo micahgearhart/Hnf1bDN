@@ -230,39 +230,35 @@ Control Cells
     ## [1] see 'cooksCutoff' argument of ?results
     ## [2] see 'independentFiltering' argument of ?results
 
-    table(ifelse(res_wt$log2FoldChange>1, "up", ifelse(res_wt$log2FoldChange< -1, "down", "no_change")))
-
-    ## 
-    ##      down no_change        up 
-    ##       579     30760      1288
-
     res_wt<-as.data.frame(res_wt)
     colnames(res_wt)<-paste0("WT",".",colnames(res_wt))
+
+    #table(ifelse((res_wt$WT.log2FoldChange>1), "up", ifelse((res_wt$WT.log2FoldChange< -1 ), "down", "no_change")))
+    #table(ifelse((res_wt$WT.log2FoldChange>1 & res_wt$WT.padj < 0.05), "up", 
+    #             ifelse((res_wt$WT.log2FoldChange< -1 & res_wt$WT.padj < 0.05), "down", "no_change")))
 
 Hnf1b DN Cells
 --------------
 
-    summary(res_hnf1b<-results(cds2, contrast=c("group","MifNacl","MifnoSalt")))
+    summary(res_hnf1b<-results(cds2, contrast=c("group","MifNacl","MifnoSalt"),alpha=0.05,lfcThreshold = 0))
 
     ## 
     ## out of 32627 with nonzero total read count
-    ## adjusted p-value < 0.1
-    ## LFC > 0 (up)     : 5854, 18% 
-    ## LFC < 0 (down)   : 5629, 17% 
+    ## adjusted p-value < 0.05
+    ## LFC > 0 (up)     : 5130, 16% 
+    ## LFC < 0 (down)   : 5122, 16% 
     ## outliers [1]     : 6, 0.018% 
-    ## low counts [2]   : 7399, 23% 
+    ## low counts [2]   : 8015, 25% 
     ## (mean count < 1)
     ## [1] see 'cooksCutoff' argument of ?results
     ## [2] see 'independentFiltering' argument of ?results
 
-    table(ifelse(res_hnf1b$log2FoldChange>1, "up", ifelse(res_hnf1b$log2FoldChange< -1, "down", "no_change")))
-
-    ## 
-    ##      down no_change        up 
-    ##       657     29884      2086
-
     res_hnf1b<-as.data.frame(res_hnf1b)
     colnames(res_hnf1b)<-paste0("hnf1b",".",colnames(res_hnf1b))
+
+    #table(ifelse(res_hnf1b$hnf1b.log2FoldChange>1, "up", ifelse(res_hnf1b$hnf1b.log2FoldChange< -1, "down", "no_change")))
+    #table(ifelse((res_hnf1b$hnf1b.log2FoldChange>1 & res_hnf1b$hnf1b.padj < 0.05), "up", 
+    #             ifelse((res_hnf1b$hnf1b.log2FoldChange< -1 & res_hnf1b$hnf1b.padj < 0.05), "down", "no_change")))
 
 Merge WT and Hnf1b DN Results
 -----------------------------
@@ -292,12 +288,12 @@ Merge WT and Hnf1b DN Results
     ## ENSMUSG00000000037           0.03860877  0.19552932  0.1974577
     ## ENSMUSG00000000049           1.16381071  0.45194906  2.5750927
     ##                    hnf1b.pvalue   hnf1b.padj
-    ## ENSMUSG00000000001 3.927812e-09 2.755696e-08
+    ## ENSMUSG00000000001 3.927812e-09 2.688393e-08
     ## ENSMUSG00000000003 8.357233e-01           NA
-    ## ENSMUSG00000000028 1.721228e-21 2.640682e-20
-    ## ENSMUSG00000000031 6.955337e-01 8.055973e-01
-    ## ENSMUSG00000000037 8.434694e-01 9.025491e-01
-    ## ENSMUSG00000000049 1.002132e-02 2.720751e-02
+    ## ENSMUSG00000000028 1.721228e-21 2.576188e-20
+    ## ENSMUSG00000000031 6.955337e-01 8.009653e-01
+    ## ENSMUSG00000000037 8.434694e-01 9.010727e-01
+    ## ENSMUSG00000000049 1.002132e-02 2.654302e-02
 
     #res_merged<-res_merged[res_merged$WT.padj < 0.05 & res_merged$WT.baseMean > 100,]
     res_merged<-subset(res_merged,!(is.na(WT.log2FoldChange) | is.na(hnf1b.log2FoldChange)))
@@ -315,7 +311,7 @@ Merge WT and Hnf1b DN Results
     ##       1    5073   10150   10150   15220   20290   12337
 
     res_merged$int<-resDF[idx,"log2FoldChange"]
-    res_merged[is.na(res_merged$int),]<-0
+    res_merged[is.na(res_merged$int),"int"]<-0
     res_merged$int.padj<-resDF[idx,"padj"]
 
     res_merged$iTerm<-abs(res_merged$int) > 1 & res_merged$int.padj < 0.05 & abs(res_merged$WT.log2FoldChange) > 1 & res_merged$WT.padj < 0.05
@@ -398,13 +394,13 @@ Annotate Peaks
     summary(hnf1b_anno$shortestDistance)
 
     ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-    ##       0    8014   26040   63540   70070 2261000
+    ##       0    7288   23580   58400   63910 2261000
 
     table(hnf1b_anno$insideFeature)
 
     ## 
     ##   downstream       inside   overlapEnd overlapStart     upstream 
-    ##         4377         9112           50          303         8007
+    ##         4455         9507           57          315         8110
 
     p1<-hnf1b_anno[hnf1b_anno$insideFeature=="upstream" & hnf1b_anno$shortestDistance < 50000,]$feature
     p2<-hnf1b_anno[hnf1b_anno$insideFeature=="inside" | hnf1b_anno$insideFeature=="overlapStart" | hnf1b_anno$insideFeature=="overlapEnd"]$feature
@@ -412,7 +408,7 @@ Annotate Peaks
     res_merged$`Nearby Peak`<-rownames(res_merged) %in% p
     sum(res_merged$`Nearby Peak`)
 
-    ## [1] 5390
+    ## [1] 5808
 
 Create Output
 -------------
@@ -431,6 +427,10 @@ Create Output
     colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj",
         "Interaction","Interaction.Size","Interaction.padj","Nearby Peak")
     temp<-temp[with(temp,order(-Interaction.Size)),]
+    dim(temp)
+
+    ## [1] 32627    10
+
     head(temp)
 
     ##                    MGI Symbol  baseMean WT.log2FoldChange      WT.padj
@@ -441,12 +441,12 @@ Create Output
     ## ENSMUSG00000021799       Opn4  6.340113      0.0001211681 1.000000e+00
     ## ENSMUSG00000031101      Sash3 10.311104     -0.3830671317 5.578399e-01
     ##                    Hnf1b.log2FoldChange   Hnf1b.padj Interaction
-    ## ENSMUSG00000059336             4.770249 3.959827e-28       FALSE
-    ## ENSMUSG00000109517             3.631442 2.504262e-15       FALSE
-    ## ENSMUSG00000035916             0.142721 8.493364e-01       FALSE
-    ## ENSMUSG00000071047             3.479111 1.953425e-13       FALSE
-    ## ENSMUSG00000021799             3.189291 1.835205e-11       FALSE
-    ## ENSMUSG00000031101             2.282791 5.605729e-08       FALSE
+    ## ENSMUSG00000059336             4.770249 3.863115e-28       FALSE
+    ## ENSMUSG00000109517             3.631442 2.443100e-15       FALSE
+    ## ENSMUSG00000035916             0.142721 8.476640e-01       FALSE
+    ## ENSMUSG00000071047             3.479111 1.905716e-13       FALSE
+    ## ENSMUSG00000021799             3.189291 1.790384e-11       FALSE
+    ## ENSMUSG00000031101             2.282791 5.468820e-08       FALSE
     ##                    Interaction.Size Interaction.padj Nearby Peak
     ## ENSMUSG00000059336         9.041953      0.007353637       FALSE
     ## ENSMUSG00000109517         6.036978      0.479172868       FALSE
@@ -454,6 +454,20 @@ Create Output
     ## ENSMUSG00000071047         5.274840      1.000000000       FALSE
     ## ENSMUSG00000021799         5.229401      1.000000000       FALSE
     ## ENSMUSG00000031101         5.103819      1.000000000       FALSE
+
+    table(ifelse((temp$WT.log2FoldChange>1 & temp$WT.padj < 0.05), "up", 
+                 ifelse((temp$WT.log2FoldChange< -1 & temp$WT.padj < 0.05), "down", "no_change")))
+
+    ## 
+    ##      down no_change        up 
+    ##       567     30812      1242
+
+    table(ifelse((temp$Hnf1b.log2FoldChange>1 & temp$Hnf1b.padj < 0.05), "up", 
+                 ifelse((temp$Hnf1b.log2FoldChange< -1 & temp$Hnf1b.padj < 0.05), "down", "no_change")))
+
+    ## 
+    ##      down no_change        up 
+    ##       648     29957      2022
 
     write.csv(temp,file=paste0("hnf1b_nacl_log2FCs_wChIPdata_",ts,".csv"),quote=F)
 
@@ -704,3 +718,106 @@ Figure 3D Heatmap
 
     ## png 
     ##   2
+
+SessionInfo
+===========
+
+    sessionInfo()
+
+    ## R version 3.3.0 (2016-05-03)
+    ## Platform: x86_64-pc-linux-gnu (64-bit)
+    ## Running under: Ubuntu 14.04.4 LTS
+    ## 
+    ## locale:
+    ##  [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+    ##  [3] LC_TIME=en_US.UTF-8        LC_COLLATE=en_US.UTF-8    
+    ##  [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+    ##  [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+    ##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+    ## [11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+    ## 
+    ## attached base packages:
+    ##  [1] grid      parallel  stats4    stats     graphics  grDevices utils    
+    ##  [8] datasets  methods   base     
+    ## 
+    ## other attached packages:
+    ##  [1] gridExtra_2.2.1                         
+    ##  [2] ComplexHeatmap_1.10.2                   
+    ##  [3] goseq_1.24.0                            
+    ##  [4] geneLenDataBase_1.8.0                   
+    ##  [5] BiasedUrn_1.07                          
+    ##  [6] Mus.musculus_1.3.1                      
+    ##  [7] TxDb.Mmusculus.UCSC.mm10.knownGene_3.2.2
+    ##  [8] org.Mm.eg.db_3.3.0                      
+    ##  [9] GO.db_3.3.0                             
+    ## [10] OrganismDbi_1.14.1                      
+    ## [11] GenomicFeatures_1.24.4                  
+    ## [12] AnnotationDbi_1.34.4                    
+    ## [13] ChIPpeakAnno_3.6.4                      
+    ## [14] VennDiagram_1.6.17                      
+    ## [15] futile.logger_1.4.1                     
+    ## [16] biomaRt_2.28.0                          
+    ## [17] magrittr_1.5                            
+    ## [18] ggplot2_2.1.0                           
+    ## [19] DESeq2_1.12.3                           
+    ## [20] BiocParallel_1.6.2                      
+    ## [21] GenomicAlignments_1.8.4                 
+    ## [22] SummarizedExperiment_1.2.3              
+    ## [23] Biobase_2.32.0                          
+    ## [24] Rsamtools_1.24.0                        
+    ## [25] Biostrings_2.40.2                       
+    ## [26] XVector_0.12.0                          
+    ## [27] GenomicRanges_1.24.2                    
+    ## [28] GenomeInfoDb_1.8.1                      
+    ## [29] IRanges_2.6.1                           
+    ## [30] S4Vectors_0.10.2                        
+    ## [31] BiocGenerics_0.18.0                     
+    ## 
+    ## loaded via a namespace (and not attached):
+    ##  [1] colorspace_1.2-6              seqinr_3.2-0                 
+    ##  [3] rjson_0.2.15                  class_7.3-14                 
+    ##  [5] modeltools_0.2-21             mclust_5.2                   
+    ##  [7] circlize_0.3.8                GlobalOptions_0.0.10         
+    ##  [9] flexmix_2.3-13                interactiveDisplayBase_1.10.3
+    ## [11] mvtnorm_1.0-5                 splines_3.3.0                
+    ## [13] robustbase_0.92-6             geneplotter_1.50.0           
+    ## [15] knitr_1.13                    ade4_1.7-4                   
+    ## [17] Formula_1.2-1                 annotate_1.50.0              
+    ## [19] kernlab_0.9-24                cluster_2.0.4                
+    ## [21] graph_1.50.0                  shiny_0.13.2                 
+    ## [23] httr_1.2.1                    lazyeval_0.2.0               
+    ## [25] assertthat_0.1                Matrix_1.2-6                 
+    ## [27] limma_3.28.14                 formatR_1.4                  
+    ## [29] acepack_1.3-3.3               htmltools_0.3.5              
+    ## [31] tools_3.3.0                   gtable_0.2.0                 
+    ## [33] dplyr_0.5.0                   reshape2_1.4.1               
+    ## [35] Rcpp_0.12.5                   trimcluster_0.1-2            
+    ## [37] multtest_2.28.0               nlme_3.1-128                 
+    ## [39] rtracklayer_1.32.1            fpc_2.1-10                   
+    ## [41] stringr_1.0.0                 mime_0.5                     
+    ## [43] ensembldb_1.4.7               XML_3.98-1.4                 
+    ## [45] dendextend_1.2.0              DEoptimR_1.0-6               
+    ## [47] idr_1.2                       AnnotationHub_2.4.2          
+    ## [49] zlibbioc_1.18.0               MASS_7.3-45                  
+    ## [51] scales_0.4.0                  BSgenome_1.40.1              
+    ## [53] BiocInstaller_1.22.3          RBGL_1.48.1                  
+    ## [55] lambda.r_1.1.7                RColorBrewer_1.1-2           
+    ## [57] yaml_2.1.13                   memoise_1.0.0                
+    ## [59] rpart_4.1-10                  latticeExtra_0.6-28          
+    ## [61] stringi_1.1.1                 RSQLite_1.0.0                
+    ## [63] genefilter_1.54.2             shape_1.4.2                  
+    ## [65] chron_2.3-47                  prabclus_2.2-6               
+    ## [67] matrixStats_0.50.2            bitops_1.0-6                 
+    ## [69] evaluate_0.9                  lattice_0.20-33              
+    ## [71] labeling_0.3                  plyr_1.8.4                   
+    ## [73] R6_2.1.2                      Hmisc_3.17-4                 
+    ## [75] DBI_0.4-1                     whisker_0.3-2                
+    ## [77] foreign_0.8-66                mgcv_1.8-12                  
+    ## [79] survival_2.39-5               RCurl_1.95-4.8               
+    ## [81] nnet_7.3-12                   tibble_1.1                   
+    ## [83] futile.options_1.0.0          rmarkdown_1.0.9006           
+    ## [85] GetoptLong_0.1.4              locfit_1.5-9.1               
+    ## [87] data.table_1.9.6              digest_0.6.9                 
+    ## [89] diptest_0.75-7                xtable_1.8-2                 
+    ## [91] tidyr_0.5.1                   httpuv_1.3.3                 
+    ## [93] regioneR_1.4.2                munsell_0.4.3

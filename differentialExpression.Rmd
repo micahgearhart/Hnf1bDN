@@ -133,17 +133,23 @@ cds2 <- DESeq(cds2)
 resultsNames(cds2)
 
 summary(res_wt<-results(cds2, contrast=c("group","ControlNacl","ControlnoSalt"),alpha=0.05,lfcThreshold = 0))
-table(ifelse(res_wt$log2FoldChange>1, "up", ifelse(res_wt$log2FoldChange< -1, "down", "no_change")))
 res_wt<-as.data.frame(res_wt)
 colnames(res_wt)<-paste0("WT",".",colnames(res_wt))
+
+#table(ifelse((res_wt$WT.log2FoldChange>1), "up", ifelse((res_wt$WT.log2FoldChange< -1 ), "down", "no_change")))
+#table(ifelse((res_wt$WT.log2FoldChange>1 & res_wt$WT.padj < 0.05), "up", 
+#             ifelse((res_wt$WT.log2FoldChange< -1 & res_wt$WT.padj < 0.05), "down", "no_change")))
 ```
 
 ## Hnf1b DN Cells
 ```{r}
-summary(res_hnf1b<-results(cds2, contrast=c("group","MifNacl","MifnoSalt")))
-table(ifelse(res_hnf1b$log2FoldChange>1, "up", ifelse(res_hnf1b$log2FoldChange< -1, "down", "no_change")))
+summary(res_hnf1b<-results(cds2, contrast=c("group","MifNacl","MifnoSalt"),alpha=0.05,lfcThreshold = 0))
 res_hnf1b<-as.data.frame(res_hnf1b)
 colnames(res_hnf1b)<-paste0("hnf1b",".",colnames(res_hnf1b))
+
+#table(ifelse(res_hnf1b$hnf1b.log2FoldChange>1, "up", ifelse(res_hnf1b$hnf1b.log2FoldChange< -1, "down", "no_change")))
+#table(ifelse((res_hnf1b$hnf1b.log2FoldChange>1 & res_hnf1b$hnf1b.padj < 0.05), "up", 
+#             ifelse((res_hnf1b$hnf1b.log2FoldChange< -1 & res_hnf1b$hnf1b.padj < 0.05), "down", "no_change")))
 
 ```
 
@@ -151,6 +157,7 @@ colnames(res_hnf1b)<-paste0("hnf1b",".",colnames(res_hnf1b))
 ```{r}
 res_merged<-cbind(res_wt,res_hnf1b)
 head(res_merged)
+
 #res_merged<-res_merged[res_merged$WT.padj < 0.05 & res_merged$WT.baseMean > 100,]
 res_merged<-subset(res_merged,!(is.na(WT.log2FoldChange) | is.na(hnf1b.log2FoldChange)))
 dim(res_merged)
@@ -160,7 +167,7 @@ res_merged$mgi<-mgi[idx,"mgi_symbol"]
 #Highlight genes with WTlogFC > 1 & strong interaction term
 summary(idx<-match(rownames(res_merged),rownames(resDF)))
 res_merged$int<-resDF[idx,"log2FoldChange"]
-res_merged[is.na(res_merged$int),]<-0
+res_merged[is.na(res_merged$int),"int"]<-0
 res_merged$int.padj<-resDF[idx,"padj"]
 
 res_merged$iTerm<-abs(res_merged$int) > 1 & res_merged$int.padj < 0.05 & abs(res_merged$WT.log2FoldChange) > 1 & res_merged$WT.padj < 0.05
@@ -234,7 +241,12 @@ temp<-res_merged[,c("mgi","WT.baseMean","WT.log2FoldChange","WT.padj","hnf1b.log
 colnames(temp)<-c("MGI Symbol","baseMean","WT.log2FoldChange","WT.padj","Hnf1b.log2FoldChange","Hnf1b.padj",
     "Interaction","Interaction.Size","Interaction.padj","Nearby Peak")
 temp<-temp[with(temp,order(-Interaction.Size)),]
+dim(temp)
 head(temp)
+table(ifelse((temp$WT.log2FoldChange>1 & temp$WT.padj < 0.05), "up", 
+             ifelse((temp$WT.log2FoldChange< -1 & temp$WT.padj < 0.05), "down", "no_change")))
+table(ifelse((temp$Hnf1b.log2FoldChange>1 & temp$Hnf1b.padj < 0.05), "up", 
+             ifelse((temp$Hnf1b.log2FoldChange< -1 & temp$Hnf1b.padj < 0.05), "down", "no_change")))
 write.csv(temp,file=paste0("hnf1b_nacl_log2FCs_wChIPdata_",ts,".csv"),quote=F)
 ```
 
@@ -379,5 +391,10 @@ h+ha
 pdf(paste0("Figure3D_heatmap_",ts,".pdf"),width=6,height=5)
 h+ha
 dev.off()
+```
+
+# SessionInfo 
+```{r}
+sessionInfo()
 ```
 
